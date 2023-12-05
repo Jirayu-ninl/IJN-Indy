@@ -9,8 +9,8 @@ bool show_FVG = input.bool(true, title = 'Show FVGs',   group=g_MainOpt)
 bool show_iob = input.bool(true, 'Internal Order Blocks', group=g_MainOpt)
 bool show_sob = input.bool(true, 'Swing Order Blocks', group=g_MainOpt)
 bool show_pdZone = input.bool(true, 'Premium/Discount Zones' , group=g_MainOpt)
-bool show_dsZone = input.bool(true, 'Demand/Supply Zone', group=g_MainOpt)
-bool show_dsZoneDynamics = input.bool(true, 'Demand/Supply Dynamic Zones', group=g_MainOpt)
+bool show_srZone = input.bool(true, 'Support/Resistance Zone', group=g_MainOpt)
+bool show_srZoneDynamics = input.bool(true, 'Support/Resistance Dynamic Zones', group=g_MainOpt)
 
 // ------------------------------------------------
 //                     Constants
@@ -788,7 +788,7 @@ showlast = input.int(10, 'Show Last', minval = 1, group = g_dsZone)
 demand_zone_css = input.color(color.new(#66bb6a, 93), 'Demand', inline = "Zones", group = g_dsZone)
 supply_zone_css = input.color(color.new(#f77c80, 93), 'Supply', inline = "Zones", group = g_dsZone)
 indecision_zone_css = input.color(color.new(#777575, 93), 'Indecision', inline = "Zones",group = g_dsZone)
-show_dsZone_text = input.bool(true, 'Show Text', group = g_dsZone)
+show_srZone_text = input.bool(true, 'Show Text', group = g_dsZone)
 text_size = input.string('Small', 'Text Size', options = ['Tiny', 'Small', 'Normal'], group = g_dsZone)
 
 // -----------------------------------------------------------------------------------------------
@@ -908,7 +908,7 @@ display_zones(boxes, labels, dzones, show_last, zsize) =>
         box.set_rightbottom(get_box, zone.left, zone.bottom)
         box.set_border_color(get_box, zone.css)
         box.set_bgcolor(get_box, zone.css)
-        if show_dsZone_text
+        if show_srZone_text
             if zone.type == TBD_ZONE
                 label.new(bar_index + 5, zone.bottom, 'TBD', color=CLEAR, textcolor=color.new(zone.css, 0), size=label_size)
             else
@@ -972,7 +972,7 @@ if barstate.isconfirmed
 // -----------------------------------------------------------------------------------------------
 if barstate.islast
     int zones_size = array.size(zones)
-    if zones_size > 0 and show_dsZone
+    if zones_size > 0 and show_srZone
         display_zones(zone_boxes, zone_labels, zones, showlast, zones_size)
 
 // -----------------------------------------------------------------------------------------------
@@ -1045,21 +1045,21 @@ if barstate.isfirst and extLast > 0
 if barstate.islast and extLast > 0
     for i = 0 to extLast-1
         get_sr = dz_records.get(i)
-        if extLvls and show_dsZoneDynamics
+        if extLvls and show_srZoneDynamics
             line.new(get_sr.x, get_sr.y, time, get_sr.y, xloc=xloc.bar_time, style=line.style_dashed, color=get_sr.support ? supCss : resCss)
-        if extArea and show_dsZoneDynamics
+        if extArea and show_srZoneDynamics
             get_box = dz_boxes.get(i)
             get_box.set_lefttop(get_sr.x, get_sr.area)
             get_box.set_rightbottom(time, get_sr.y)
             get_box.set_bgcolor(get_sr.support ? supAreaCss : resAreaCss)
 
-plot_upper_sup = plot(show_dsZoneDynamics ? upper_sup: na, 'Upper Support', na
+plot_upper_sup = plot(show_srZoneDynamics ? upper_sup: na, 'Upper Support', na
   , style = plot.style_linebr)
-plot_lower_sup = plot(show_dsZoneDynamics ? lower_sup: na, 'Lower Support', close == dz_avg ? na : supCss
+plot_lower_sup = plot(show_srZoneDynamics ? lower_sup: na, 'Lower Support', close == dz_avg ? na : supCss
   , style = plot.style_linebr)
-plot_upper_res = plot(show_dsZoneDynamics ? upper_res: na, 'Upper Resistance', close == dz_avg ? na : resCss
+plot_upper_res = plot(show_srZoneDynamics ? upper_res: na, 'Upper Resistance', close == dz_avg ? na : resCss
   , style = plot.style_linebr)
-plot_lower_res = plot(show_dsZoneDynamics ? lower_res: na, 'Lower Resistance', na
+plot_lower_res = plot(show_srZoneDynamics ? lower_res: na, 'Lower Resistance', na
   , style = plot.style_linebr)
 fill(plot_upper_sup, plot_lower_sup, supAreaCss, 'Support Area')
 fill(plot_upper_res, plot_lower_res, resAreaCss, 'Resistance Area')
