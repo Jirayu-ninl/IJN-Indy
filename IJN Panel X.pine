@@ -20,13 +20,40 @@ color CLEAR = color.rgb(0,0,0,100)
 // -----------------------------------------------------------------------------------------------
 //   Define User Input Variables
 // -----------------------------------------------------------------------------------------------
+// Main Options
+g_mainOption = 'Main Options'
+bool show_MFI_bar = input.bool(true, title='Show MFI Bar', group=g_mainOption)
+bool show_RSIMFI_bar = input.bool(true, title='Show RSI-MFI Bar', group=g_mainOption)
+bool show_RSIMFI = input.bool(true, title='Show RSI-MFI Indicator', group=g_mainOption)
+bool show_SAR = input.bool(true, title='Show SAR Bar', group=g_mainOption)
+bool show_WT1 = input.bool(true, title='Show WaveTrend 1', group=g_mainOption)
+bool show_WT2 = input.bool(true, title='Show WaveTrend 2', group=g_mainOption)
+bool show_WT2kv = input.bool(true, title='WT2 with Implied volatility Coloring', group=g_mainOption)
+bool show_wtCross = input.bool(true, title='WT Cross dots', group=g_mainOption)
+bool show_vwap = input.bool(true, title='Show Fast WT', group=g_mainOption)
+bool show_rsi = input.bool(true, title='Show RSI', group=g_mainOption)
+bool show_stoch = input.bool(true, title='Show Stochastic RSI', group=g_mainOption)
+bool show_tcLine = input.bool(false, title='Show Schaff TC line', group=g_mainOption)
+bool show_ichi = input.bool(true, title='Show Ichimoku Buy/Sell Zone', group=g_mainOption)
+g_extraOption = 'Extra Options'
+bool wtShowDiv = input.bool(true, title='Show WT Regular Divergences', group=g_extraOption)
+bool wtShowHiddenDiv = input.bool(false, title='Show WT Hidden Divergences', group=g_extraOption)
+bool wtDivOBLevel_addshow = input.bool(true, title='Show 2nd WT Regular Divergences', group=g_extraOption)
+bool rsiShowDiv = input.bool(false, title='Show RSI Regular Divergences', group=g_extraOption)
+bool rsiShowHiddenDiv = input.bool(false, title='Show RSI Hidden Divergences', group=g_extraOption)
+bool stochShowDiv = input.bool(false, title='Show Stoch Regular Divergences', group=g_extraOption)
+bool stochShowHiddenDiv = input.bool(false, title='Show Stoch Hidden Divergences', group=g_extraOption)
+// Dot Signal
+g_dotSignals = 'Dot Signal Options'
+bool show_wtDot = input.bool(true, title='WaveTrend Buy/Sell dots', group=g_dotSignals)
+bool show_wtCrossDot = input.bool(true, title='Cross Buy/Sell dots', group=g_dotSignals)
+bool show_wtDivDot = input.bool(true, title='WaveTrend Divergence Buy/Sell Dots', group=g_dotSignals)
+bool show_wtGoldDot = input.bool(true, title='WaveTrend Gold Buy Dot', group=g_dotSignals)
+
+
 // WaveTrend
-wtShow = input.bool(true, title='Show WaveTrend', group='WaveTrend Settings')
-wtBuyShow = input.bool(true, title='Show Buy dots', group='WaveTrend Settings')
-wtGoldShow = input.bool(true, title='Show Gold dots', group='WaveTrend Settings')
-wtSellShow = input.bool(true, title='Show Sell dots', group='WaveTrend Settings')
-wtDivShow = input.bool(true, title='Show Div. dots', group='WaveTrend Settings')
-vwapShow = input.bool(true, title='Show Fast WT', group='WaveTrend Settings')
+
+
 wtChannelLen = input.int(9, title='WT Channel Length', group='WaveTrend Settings')
 wtAverageLen = input.int(12, title='WT Average Length', group='WaveTrend Settings')
 wtMASource = input.source(hlc3, title='WT MA Source', group='WaveTrend Settings')
@@ -39,33 +66,26 @@ osLevel = input.int(-53, title='WT Oversold Level 1', group='WaveTrend Settings'
 osLevel2 = input.int(-60, title='WT Oversold Level 2', group='WaveTrend Settings')
 osLevel3 = input.int(-75, title='WT Oversold Level 3', group='WaveTrend Settings')
 // Divergence WT
-wtShowDiv = input.bool(true, title='Show WT Regular Divergences', group='WaveTrend Settings')
-wtShowHiddenDiv = input.bool(false, title='Show WT Hidden Divergences', group='WaveTrend Settings')
+
 showHiddenDiv_nl = input.bool(true, title='Not apply OB/OS Limits on Hidden Divergences', group='WaveTrend Settings')
 wtDivOBLevel = input.int(45, title='WT Bearish Divergence min', group='WaveTrend Settings')
 wtDivOSLevel = input.int(-65, title='WT Bullish Divergence min', group='WaveTrend Settings')
 // Divergence extra range
-wtDivOBLevel_addshow = input.bool(true, title='Show 2nd WT Regular Divergences', group='WaveTrend Settings')
 wtDivOBLevel_add = input.int(15, title='WT 2nd Bearish Divergence', group='WaveTrend Settings')
 wtDivOSLevel_add = input.int(-40, title='WT 2nd Bullish Divergence 15 min', group='WaveTrend Settings')
 // RSI+MFI
-rsiMFIShow = input.bool(true, title='Show MFI', group='MFI Settings')
 rsiMFIperiod = input.int(60, title='MFI Period', group='MFI Settings')
 rsiMFIMultiplier = input.float(150, title='MFI Area multiplier', group='MFI Settings')
 rsiMFIPosY = input.float(2.5, title='MFI Area Y Pos', group='MFI Settings')
 // RSI
-rsiShow = input.bool(true, title='Show RSI', group='RSI Settings')
 rsiSRC = input.source(close, title='RSI Source', group='RSI Settings')
 rsiLen = input.int(14, title='RSI Length', group='RSI Settings')
 rsiOversold = input.int(30, title='RSI Oversold', minval=0, maxval=100, group='RSI Settings')
 rsiOverbought = input.int(60, title='RSI Overbought', minval=0, maxval=100, group='RSI Settings')
 // Divergence RSI
-rsiShowDiv = input.bool(false, title='Show RSI Regular Divergences', group='RSI Settings')
-rsiShowHiddenDiv = input.bool(false, title='Show RSI Hidden Divergences', group='RSI Settings')
 rsiDivOBLevel = input.int(60, title='RSI Bearish Divergence min', group='RSI Settings')
 rsiDivOSLevel = input.int(30, title='RSI Bullish Divergence min', group='RSI Settings')
 // RSI Stochastic
-stochShow = input.bool(true, title='Show Stochastic RSI', group='Stoch Settings')
 stochUseLog = input.bool(true, title=' Use Log?', group='Stoch Settings')
 stochAvg = input.bool(false, title='Use Average of both K & D', group='Stoch Settings')
 stochSRC = input.source(close, title='Stochastic RSI Source', group='Stoch Settings')
@@ -73,11 +93,7 @@ stochLen = input.int(14, title='Stochastic RSI Length', group='Stoch Settings')
 stochRsiLen = input.int(14, title='RSI Length ', group='Stoch Settings')
 stochKSmooth = input.int(3, title='Stochastic RSI K Smooth', group='Stoch Settings')
 stochDSmooth = input.int(3, title='Stochastic RSI D Smooth', group='Stoch Settings')
-// Divergence stoch
-stochShowDiv = input.bool(false, title='Show Stoch Regular Divergences', group='Stoch Settings')
-stochShowHiddenDiv = input.bool(false, title='Show Stoch Hidden Divergences', group='Stoch Settings')
 // Schaff Trend Cycle
-tcLine = input.bool(false, title='Show Schaff TC line', group='Schaff Settings')
 tcSRC = input.source(close, title='Schaff TC Source', group='Schaff Settings')
 tclength = input.int(10, title='Schaff TC', group='Schaff Settings')
 tcfastLength = input.int(23, title='Schaff TC Fast Lenght', group='Schaff Settings')
@@ -99,10 +115,8 @@ sommiHTCRes = input.string('60', title='HTF Candle Res. 1', group='Sommi Setting
 sommiHTCRes2 = input.string('240', title='HTF Candle Res. 2', group='Sommi Settings')
 soomiDiamondWTBearLevel = input.int(0, title='WT Bear Level (More than)', group='Sommi Settings')
 soomiDiamondWTBullLevel = input.int(0, title='WT Bull Level (Less than)', group='Sommi Settings')
-// macd Colors
-macdWTColorsShow = input.bool(false, title='Show MACD Colors', group='MACD Settings')
+// macd
 macdWTColorsTF = input.string('240', title='MACD Colors MACD TF', group='MACD Settings')
-darkMode = input.bool(false, title='Dark mode', group='Mode Settings')
 // Colors
 colorRed = #ff0000
 colorPurple = #e600e6
@@ -400,10 +414,6 @@ lbR = input(title='Divergence Pivot Lookback Right', defval=1)
 lbL = input(title='Divergence Pivot Lookback Left', defval=5)
 rangeUpper = input(title='Max of Lookback Range', defval=100)
 rangeLower = input(title='Min of Lookback Range', defval=2)
-plotBull = input(title='Plot Bullish', defval=true)
-plotHiddenBull = input(title='Plot Hidden Bullish', defval=false)
-plotBear = input(title='Plot Bearish', defval=true)
-plotHiddenBear = input(title='Plot Hidden Bearish', defval=false)
 bearColor = color.new(color.red, 0)
 bullColor = color.new(color.green, 0)
 hiddenBullColor = color.new(color.aqua, 0)
@@ -416,44 +426,6 @@ phFound = na(ta.pivothigh(osc, lbL, lbR)) ? false : true
 _inRange(cond) =>
     bars = ta.barssince(cond == true)
     rangeLower <= bars and bars <= rangeUpper
-
-// //------------------------------------------------------------------------------
-// // Regular Bullish
-// // Osc: Higher Low
-// oscHL = osc[lbR] > ta.valuewhen(plFound, osc[lbR], 1) and _inRange(plFound[1])
-// // Price: Lower Low
-// priceLL = low[lbR] < ta.valuewhen(plFound, low[lbR], 1)
-// bullCond = plotBull and priceLL and oscHL and plFound
-// plot(plFound ? osc[lbR] : na, offset=-lbR, title='Regular Bullish', linewidth=1, color=bullCond ? bullColor : noneColor, transp=0)
-// plotshape(bullCond ? osc[lbR] : na, offset=-lbR, title='Regular Bullish Label', style=shape.labelup, location=location.absolute, size=size.tiny, color=bullColor, textcolor=textColor, transp=0)
-// //------------------------------------------------------------------------------
-// // Hidden Bullish
-// // Osc: Lower Low
-// oscLL = osc[lbR] < ta.valuewhen(plFound, osc[lbR], 1) and _inRange(plFound[1])
-// // Price: Higher Low
-// priceHL = low[lbR] > ta.valuewhen(plFound, low[lbR], 1)
-// hiddenBullCond = plotHiddenBull and priceHL and oscLL and plFound
-// plot(plFound ? osc[lbR] : na, offset=-lbR, title='Hidden Bullish', linewidth=1, color=hiddenBullCond ? hiddenBullColor : noneColor, transp=0)
-// plotshape(hiddenBullCond ? osc[lbR] : na, offset=-lbR, title='Hidden Bullish Label', style=shape.labelup, location=location.absolute, size=size.tiny, color=hiddenBullColor, textcolor=textColor, transp=0)
-// //------------------------------------------------------------------------------
-// // Regular Bearish
-// // Osc: Lower High
-// oscLH = osc[lbR] < ta.valuewhen(phFound, osc[lbR], 1) and _inRange(phFound[1])
-// // Price: Higher High
-// priceHH = high[lbR] > ta.valuewhen(phFound, high[lbR], 1)
-// bearCond = plotBear and priceHH and oscLH and phFound
-// plot(phFound ? osc[lbR] : na, offset=-lbR, title='Regular Bearish', linewidth=1, color=bearCond ? bearColor : noneColor, transp=0)
-// plotshape(bearCond ? osc[lbR] : na, offset=-lbR, title='Regular Bearish Label', style=shape.labeldown, location=location.absolute, size=size.tiny, color=bearColor, textcolor=textColor, transp=0)
-// //------------------------------------------------------------------------------
-// // Hidden Bearish
-// // Osc: Higher High
-// oscHH = osc[lbR] > ta.valuewhen(phFound, osc[lbR], 1) and _inRange(phFound[1])
-// // Price: Lower High
-// priceLH = high[lbR] < ta.valuewhen(phFound, high[lbR], 1)
-// hiddenBearCond = plotHiddenBear and priceLH and oscHH and phFound
-// plot(phFound ? osc[lbR] : na, offset=-lbR, title='Hidden Bearish', linewidth=1, color=hiddenBearCond ? hiddenBearColor : noneColor, transp=0)
-// plotshape(hiddenBearCond ? osc[lbR] : na, offset=-lbR, title='Hidden Bearish Label', style=shape.labeldown, location=location.absolute, color=hiddenBearColor, size=size.tiny, textcolor=textColor, transp=0)
-
 //Ichimoku
 Tenkansen = (ta.highest(high, 9) + ta.lowest(low, 9)) / 2
 Kijunsen = (ta.highest(high, 26) + ta.lowest(low, 26)) / 2
@@ -511,7 +483,6 @@ mfMFI = ta.mfi(srcMFI, lengthMFI)
 //RSI MFI
 rsiMFIline_Show = input(false, title='Show RSI MFI Line')
 //SAR 
-SARShow = input(true, title='Show SAR Trend')
 AF_initial = input(0.02, title='SAR Initial')
 AF_increment = input(0.02, title='SAR Increment')
 AF_maximum = input(0.02, title='SAR Maximum')
@@ -597,7 +568,6 @@ perccolorBBW = bbwp < 7 ? color.new(color.red,50) : color.new(color.aqua,50)
 pertextBBW = bbwp < 7 ? "BB Width Squeeze" : "BB Width"
 signallinelookback = input(1, title='Signal Line Lookback')
 perccolorHMA = hullhull[1] < hullhull and tsi2[signallinelookback] > tsi2 ? color.new(color.orange,50) : hullhull[1] > hullhull and tsi2[signallinelookback] < tsi2 ? color.new(color.aqua,50) : tsi2[signallinelookback] > tsi2 ? color.new(color.orange,70) : tsi2[signallinelookback] < tsi2 ? color.new(color.aqua,70) : color.new(color.gray,50)
-whatcolor2 = SARShow ? SARColor : perccolorHMA
 
 if barstate.islast
     var lbl = label.new(na, na)
@@ -682,20 +652,20 @@ wtGoldBuy = (wtShowDiv and wtBullDiv or rsiShowDiv and rsiBullDiv) and wtLow_pre
 //   Ploting
 // -----------------------------------------------------------------------------------------------
 //  MFI BAR
-plot(-60, title='MFI Bar Colors', color=rsiMFIColor, style=plot.style_line, linewidth=2)
+plot(show_MFI_bar ? -60 : na, title='MFI Bar Colors', color=rsiMFIColor, style=plot.style_line, linewidth=2)
 // WT Areas
-colorWT1blue = input.color(color.new(#4994ec, 0), 'WT1 Fill', group='Color Settings')
-// colorWT2purple = input.color(color.new(#1f1559, 0), 'WT2 Fill', group='Color Settings')
-colorWT2purple = input.color(color.new(color.orange, 0), 'WT2 Fill', group='Color Settings')
-plot(wtShow ? wt1 : na, style=plot.style_area, title='WT Wave 1', color=color.new(colorWT1blue, 30))
-plot(wtShow ? wt2 : na, style=plot.style_line, title='WT Wave 2 with KIHV', color=color.new(colorWT2purple, 25), linewidth=2)
+colorWT1 = input.color(color.new(#4994ec, 0), 'WT1 Fill', group='Color Settings')
+colorWT2line = input.color(color.new(color.orange, 0), 'WT2 Line', group='Color Settings')
+colorWT2fill = input.color(color.new(#001aff, 70), 'WT2 Fill (no Implied volatility)', group='Color Settings')
+plot(show_WT1 ? wt1 : na, style=plot.style_area, title='WT Wave 1', color=color.new(colorWT1, 30))
+plot(show_WT2 ? wt2 : na, style=plot.style_line, title='WT Wave 2', color=color.new(colorWT2line, 25), linewidth=2)
 color c_Ichimuku = NormalizedIndicator >= 105 ? c_Ichimuku_6 : NormalizedIndicator >= 90 ? c_Ichimuku_5 : NormalizedIndicator >= 70 ? c_Ichimuku_4 : NormalizedIndicator >= 50 ? c_Ichimuku_3 : NormalizedIndicator >= 20 ? c_Ichimuku_2 : NormalizedIndicator >= 5 ? c_Ichimuku_1 : c_Ichimuku_0
-plot(wtShow ? wt2 : na, style=plot.style_area, title='WT Wave 2 with KIHV', color=c_Ichimuku, linewidth=1)
+plot(show_WT2 ? wt2 : na, style=plot.style_area, title='WT Wave 2 with Implied volatility', color=show_WT2kv ? c_Ichimuku : colorWT2fill, linewidth=1)
 // VWAP
 VWAPColor = input.color(color.new(#ffffff, 50), 'VWAP', group='Color Settings')
-plot(vwapShow ? wtVwap : na, title='VWAP', color=VWAPColor, style=plot.style_area, linewidth=2)
+plot(show_vwap ? wtVwap : na, title='VWAP', color=VWAPColor, style=plot.style_area, linewidth=2)
 // MFI AREA
-plot(rsiMFIShow ? rsiMFI : na, style=plot.style_area, title='rsiMFI', color=color.new(rsiMFIColor, 50))
+plot(show_RSIMFI ? rsiMFI : na, style=plot.style_area, title='rsiMFI', color=color.new(rsiMFIColor, 50))
 // WT Div
 plot(series=wtFractalTop ? wt2[2] : na, title='WT Bearish Divergence', color=wtBearDivColor, linewidth=2, offset=-2)
 plot(series=wtFractalBot ? wt2[2] : na, title='WT Bullish Divergence', color=wtBullDivColor, linewidth=2, offset=-2)
@@ -703,23 +673,23 @@ plot(series=wtFractalBot ? wt2[2] : na, title='WT Bullish Divergence', color=wtB
 plot(series=wtFractalTop_add ? wt2[2] : na, title='WT 2nd Bearish Divergence', color=wtBearDivColor_add, linewidth=2, offset=-2)
 plot(series=wtFractalBot_add ? wt2[2] : na, title='WT 2nd Bullish Divergence', color=wtBullDivColor_add, linewidth=2, offset=-2)
 // RSI
-plot(rsiShow ? rsi : na, title='RSI', color=rsiColor, linewidth=2)
+plot(show_rsi ? rsi : na, title='RSI', color=rsiColor, linewidth=2)
 // RSI Div
 plot(series=rsiFractalTop ? rsi[2] : na, title='RSI Bearish Divergence', color=rsiBearDivColor, linewidth=1, offset=-2)
 plot(series=rsiFractalBot ? rsi[2] : na, title='RSI Bullish Divergence', color=rsiBullDivColor, linewidth=1, offset=-2)
 // Stochastic RSI
 stochkcolor = input.color(color.new(#15c1ff, 70), 'Stoch K', group='Color Settings')
 stochdcolor = input.color(color.new(#8b47ff, 50), 'Stoch D', group='Color Settings')
-stochKplot = plot(stochShow ? stochK : na, title='Stoch K', color=stochkcolor, linewidth=2)
-stochDplot = plot(stochShow ? stochD : na, title='Stoch D', color=stochdcolor, linewidth=1)
+stochKplot = plot(show_stoch ? stochK : na, title='Stoch K', color=stochkcolor, linewidth=2)
+stochDplot = plot(show_stoch ? stochD : na, title='Stoch D', color=stochdcolor, linewidth=1)
 stochFillColor = stochK >= stochD ? color.new(#21baf3, 95) : color.new(#673ab7, 90)
 fill(stochKplot, stochDplot, title='KD Fill', color=stochFillColor)
 // Stoch Div
 plot(series=stochFractalTop ? stochK[2] : na, title='Stoch Bearish Divergence', color=stochBearDivColor, linewidth=1, offset=-2)
 plot(series=stochFractalBot ? stochK[2] : na, title='Stoch Bullish Divergence', color=stochBullDivColor, linewidth=1, offset=-2)
 // Schaff Trend Cycle
-plot(tcLine ? tcVal : na, color=color.new(#673ab7, 25), linewidth=2, title='Schaff Trend Cycle 1')
-plot(tcLine ? tcVal : na, color=color.new(colorWhite, 50), linewidth=1, title='Schaff Trend Cycle 2')
+plot(show_tcLine ? tcVal : na, color=color.new(#673ab7, 25), linewidth=2, title='Schaff Trend Cycle 1')
+plot(show_tcLine ? tcVal : na, color=color.new(colorWhite, 50), linewidth=1, title='Schaff Trend Cycle 2')
 // Draw Overbought & Oversold lines
 hline(obLevel2, title='Over Bought Level 2', color=color.new(#8921ff, 15), linewidth=1, linestyle=hline.style_solid)
 hline(obLevel2-20, title='Over Bought Level 2', color=color.new(color.orange,80), linewidth=1, linestyle=hline.style_dashed)
@@ -731,36 +701,29 @@ plot(sommiShowVwap ? ta.ema(hvwap, 3) : na, title='Sommi higher VWAP', color=col
 plotchar(sommiDiamondShow and sommiBearishDiamond ? 108 : na, title='Sommi bearish diamond', char='◆', color=color.new(colorPink, 0), location=location.absolute, size=size.tiny)
 plotchar(sommiDiamondShow and sommiBullishDiamond ? -108 : na, title='Sommi bullish diamond', char='◆', color=color.new(colorBluelight, 0), location=location.absolute, size=size.tiny)
 // Buy-Sell Zone
-upper_band = plot(sell_zone, title='Sell Zone', color=color.new(color.orange, 65))
-lower_band = plot(buy_zone, title='Buy Zone', color=color.new(color.aqua, 65))
+upper_band = plot(show_ichi ? sell_zone : na, title='Sell Zone', color=color.new(color.orange, 65))
+lower_band = plot(show_ichi ? buy_zone : na, title='Buy Zone', color=color.new(color.aqua, 65))
 zero1 = plot(100, title='Absolute Max', color=color.new(color.white, 100))
 zero2 = plot(-100, title='Absolute Min', color=color.new(color.white, 100))
-fill(upper_band, zero1, color=color.new(color.orange, 90))
-fill(lower_band, zero2, color=color.new(color.aqua, 90))
+fill(upper_band, zero1, color=show_ichi ? color.new(color.orange, 90) : na)
+fill(lower_band, zero2, color=show_ichi ? color.new(color.aqua, 90) : na)
 // plot(input_src, linewidth=1, style=plot.style_columns, color=c_Ichimuku, title='Kumo Implied Historical Volatility')
-// filltype = plot(input_src, linewidth=2, title='WT Line', style=plot.style_line, color=color.new(color.aqua, 0))
-// plot(tsi2, linewidth=2, title='WT Signal Line', style=plot.style_line, color=color.new(color.orange, 0))
 // Divinder
 // zeromarker = plot(0, linewidth=1, title='Zero', style=plot.style_line, color=color.new(color.white, 100))
 hline(0, 'Zero', color.new(color.white,15), hline.style_solid, 1)
 hline(80, 'Overbought', color.new(color.orange,80), hline.style_dashed, 1)
 hline(-80, 'Oversold', color.new(color.aqua,80), hline.style_dashed, 1)
 // RSI-MIF
-whatcolor = rsiMFIline_Show ? rsiMFIColor : perccolorMFI
-showRSIMFILine = input(false, title='Show Moneyflow as Indicator')
-plot(showRSIMFILine ? mfMFI : -99, linewidth=2, title='Money Flow Line', style=plot.style_line, color=whatcolor)
-showSARLine = input(false, title='Show SAR as Indicator')
-plot(showSARLine ? XSAR : 99, linewidth=2, title='Trend Line', style=plot.style_line, color=whatcolor2)
-// KIV Signals
-// plot(vwapLine_Show ? wtVwap : na, title='VWAP', color=color.new(color.white, 25), style=plot.style_area, linewidth=1)
-// plotshape(PHCond, title='WT Pivot High', location=location.absolute, style=shape.labeldown, size=size.auto, color=sellmaybe)
-// plotshape(PLCond, title='WT Pivot Low', location=location.absolute, style=shape.labelup, size=size.auto, color=buymaybe)
+plot(show_RSIMFI_bar ? -99 : na, linewidth=2, title='Money Flow Line', style=plot.style_line, color=perccolorMFI)
+string showSARas_type = input.string('Line', title='Show SAR Chart type', options=['Line', 'Indicator'])
+whatcolor2 = showSARas_type == 'Indicator' ? SARColor : perccolorHMA
+plot(show_SAR and showSARas_type == 'Indicator' ? XSAR : show_SAR ? 99 : na, linewidth=2, title='Trend Line', style=plot.style_line, color=whatcolor2)
 // VMC Signals
-plot(wtCross ? wt2 : na, title='Buy and sell circle', color=signalColor, style=plot.style_circles, linewidth=2)
+plot(show_wtCross and wtCross ? wt2 : na, title='Buy and sell circle', color=signalColor, style=plot.style_circles, linewidth=2)
 // Big
-plotchar(wtDivShow and buySignalDiv ? -98 : na, title='Divergence buy circle', char='•', color=buySignalDiv_color, location=location.absolute, size=size.small, offset=-2)
-plotchar(wtDivShow and sellSignalDiv ? 98 : na, title='Divergence sell circle', char='•', color=sellSignalDiv_color, location=location.absolute, size=size.small, offset=-2)
-plotchar(wtGoldBuy and wtGoldShow ? -98 : na, title='Gold  buy gold circle', char='•', color=color.new(colorOrange, 0), location=location.absolute, size=size.normal, offset=-5)
+plotchar(show_wtDivDot and buySignalDiv ? -98 : na, title='Divergence buy circle', char='•', color=buySignalDiv_color, location=location.absolute, size=size.small, offset=-2)
+plotchar(show_wtDivDot and sellSignalDiv ? 98 : na, title='Divergence sell circle', char='•', color=sellSignalDiv_color, location=location.absolute, size=size.small, offset=-2)
+plotchar(show_wtGoldDot and wtGoldBuy ? -98 : na, title='Gold  buy gold circle', char='•', color=color.new(colorOrange, 0), location=location.absolute, size=size.normal, offset=-5)
 // Little
-plotchar(wtBuyShow and buySignal or crossbuymaybe ? -100 : wtBuyShow and buymaybe or PLCond ? -115 : na, title='Buy circle', char='·', color=c_buySignal, location=location.absolute, size=size.small)
-plotchar(wtSellShow and sellSignal or crosssellmaybe ? 98 : wtBuyShow and sellmaybe or PHCond ? 113 : na, title='Sell circle', char='·', color=c_sellSignal, location=location.absolute, size=size.small)
+plotchar(show_wtDot and buySignal ? -100 : show_wtCrossDot and crossbuymaybe ? -100 : show_wtDot and buymaybe or show_wtDot and PLCond ? -115 : na, title='Buy circle', char='·', color=c_buySignal, location=location.absolute, size=size.small)
+plotchar(show_wtDot and sellSignal ? 98 : show_wtCrossDot and crosssellmaybe ? 98 : show_wtDot and sellmaybe or show_wtDot and PHCond ? 113 : na, title='Sell circle', char='·', color=c_sellSignal, location=location.absolute, size=size.small)
