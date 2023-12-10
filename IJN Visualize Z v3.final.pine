@@ -357,7 +357,7 @@ if ll and show_swingPoint
     label.new(bar_index - swingSize, pivLo, 'LL', color=CLEAR, style=label.style_label_up, textcolor=chart.fg_color)
 
 // Generating the BOS Lines
-if highBroken
+if highBroken and show_marketStructure
     line.new(prevHighIndex, prevHigh, bar_index, prevHigh, color=bosColor, style=lineStyle(bosStyle), width=bosWidth)
     label.new(math.floor(bar_index - (bar_index - prevHighIndex) / 2), prevHigh, prevBreakoutDir == -1  ? 'CHoCH' : 'BOS', color=CLEAR, textcolor=bosColor, size=size.tiny)
     prevBreakoutDir := 1
@@ -385,7 +385,7 @@ if ifilter_confluence
     bear_concordant := high - math.max(close, open) < math.min(close, open - low)
 
 // Generating the BOS Lines
-if lowBroken
+if lowBroken and show_marketStructure
     line.new(prevLowIndex, prevLow, bar_index, prevLow, color=bosColor, style=lineStyle(bosStyle), width=bosWidth)
     label.new(math.floor(bar_index - (bar_index - prevLowIndex) / 2), prevLow, prevBreakoutDir == 1  ? 'CHoCH' : 'BOS', color=CLEAR, textcolor=bosColor, style=label.style_label_up, size=size.tiny)
     prevBreakoutDir := -1
