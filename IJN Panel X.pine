@@ -1,6 +1,5 @@
 //@version=5
-indicator('IJN Panel X', 'IJN Pn-X', overlay=false, precision=0)
-
+indicator('IJN Panel-X', 'IJN Pn-X', overlay=false, precision=0)
 
 // ------------------------------------------------
 //                     Constants

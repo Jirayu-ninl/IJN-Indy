@@ -1,5 +1,5 @@
 //@version=5
-indicator('IJN Panel Z', 'IJN Pn-Z', format=format.volume, timeframe='', timeframe_gaps=true)
+indicator('IJN Panel-Z', 'IJN Pn-Z', format=format.volume, timeframe='', timeframe_gaps=true)
 
 // ------------------------------------------------
 //                     Global
@@ -29,7 +29,7 @@ bool show_sig_kvo_cross = input.bool(true, 'Show KVO Signal Primary Line Cross',
 bool show_sig2_kvo_cross = input.bool(true, 'Show KVO Signal Secondary Line Cross', group=g_MainOpt)
 bool show_wto_div = input.bool(true, title='Show WTO Divergences', group=g_MainOpt)
 bool show_kvo_div = input.bool(true, title='Show KVO Divergences', group=g_MainOpt)
-bool bar_color = input.bool(true, title='Paint Bar colors', group=g_MainOpt)
+bool bar_color = input.bool(false, title='Paint Bar colors', group=g_MainOpt)
 
 string g_barColor = 'Bar Colors'
 string i_bc_selection = input.string('WT 1 Gradient', 'Bar Colors Type', options=['WT 1 Gradient', 'WT 1 Centerline', 'WT 1 Extremes', 'WT 2 Gradient', 'WT 2 Centerline', 'KVO | Centerline', 'KVO | Signal Line', 'KVO | Gradient', 'Smoothed KVO | Centerline', 'Smoothed KVO | Secondary Signal Line', 'Smoothed KVO | Gradient'], group=g_MainOpt)
@@ -52,42 +52,6 @@ color bc_neut = input.color(color.new(#787b86, 0), 'Neutral', inline='bc', group
 //# *
 //# * ══════════════════════════════════════════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════════════════════════════════════════════ //
-
-// Assembled by @ClassicScott
-// original author @LazyBear
-
-// I'm guessing most of you are familiar with LazyBear's adaptation of the Wavetrend Oscillator; it's one of the most popular indicators on
-// TradingView.
-
-// I know others have done adaptations of it, but I thought I might as well, because that's kind of a thing I like doing. 
-
-// In this version I've added a second Wavetrend plot. This is a thing I like to do. The slower plot gives you a slower momentum bias, while the
-// faster plot can give you entries and/or exits.
-
-// With the traditional Wavetrend Oscillator there is a simple moving average on the oscillator that is to help provide entry and exit signals.
-// I've done away with this as there are already two plots, and I felt more would just clutter the indicator. Instead of plotting the moving
-// average I've plotted the crosses along the bottom and top of the indicator. Also, as is not the case in LazyBear's version, this SMA period
-// is adjustable. By default it is set to 4, which is the default setting on the original indicator. Also, while I'm mentioning default settings
-// they are 10 and 21 for the channel and average on Lazybear's indicator. Mine are very obviously different. Change things around and see what
-// you like.
-
-// I've also plotted background colors for when there is what I call a momentum shift. Basically if one or the other oscillators crosses the
-// centerline a colored bar is plotted. By default it is turned on for both WTOs, though in practice you might only want it on for the longer
-// one.
-
-// I would say use of the indicator is similar to the original WTO and many other oscillators. Buying oversold and selling overbought, while
-// being mindful of the momentum of the market. If the slower WTO is above the centerline it's best to be looking for dips to the centerline, or
-// for an overbought signal by the faster WTO, and vice versa if the slower WTO is below the centerline. That said, you can also adjust the
-// lookback of the signal line on the faster WTO to fine tune entries or exits, which is kind of how you would trade LazyBear's version.
-// In this case you have that additional confirmation of market momentum.
-
-// I will also say that crosses of the faster and slower oscillator plots may provide you signals as well.
-// You can set bar coloring to either of the WTO plots via a dropdown menu.
-// There are alerts for overbought and oversold situations, centerline crosses, and Wavetrend crosses.
-// That's about it. Hope you enjoy this particular implementation of LazyBear's well known indicator.
-
-// Ah yes, last thing: Original version the source is set to hlc3. I've given you the opportunity to change that, so if you prefer using close
-// you can.
 
 // -----------------------------------------------------------------------------------------------
 //   Define User Input Variables
@@ -249,27 +213,6 @@ fill(line_lower, wto_1_oversold, color=show_obos_zone ? fill_lower : na, title='
 //# *
 //# * ══════════════════════════════════════════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════════════════════════════════════════════ //
-
-// Assembled by @ClassicScott
-
-// A version of Stephen J. Klinger's, Klinger Oscillator (sometimes called Klinger Volume Oscillator). I've changed virtually nothing about the
-// indicator itself, but added some lookback inputs for the EMAs the oscillator is derived from (traditionally 34 and 55), and added a few other
-// things, as is my wont.
-
-// But what is the Klinger Oscillator? Essentially, the calculation looks at the change in close of the current period vs the previous, and adds
-// volume if the close is greater, and subtracts volume if it is less. It then takes an EMA of two different lookback periods of that calculation
-// and subtracts one from the other. That's your oscillator. A signal line is slapped on top that a trader can use, in combination with the zero
-// line, for taking trades. Investopedia has a good article on it, so if you're looking for more specifics, check there.
-
-// What I've done is add a selection of different moving averages that you may choose for the signal line. Usually it's a 13 period EMA, and that
-// comes default. As an update (July 08, 2023), I've added a secondary signal line. The Klinger is a choppy oscillator, so by removing it from
-// the chart and replacing it with a smoothed version (the primary signal line) you will get far fewer false signals either by it crossing the
-// centerline or by it crossing the (secondary) signal line.
-
-// Of course there are all the usual additions of mine with the various ways of coloring the indicator and bars, adjustable Donchian Channels
-// Bands, and alerts.
-
-
 
 // -----------------------------------------------------------------------------------------------
 //   Define User Input Variables
