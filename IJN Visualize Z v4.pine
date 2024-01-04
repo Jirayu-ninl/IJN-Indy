@@ -2,12 +2,13 @@
 indicator("IJN Visualize-Z", "IJN Viz-Z", overlay = true , max_labels_count = 500 , max_lines_count = 500 , max_boxes_count = 500 , max_bars_back = 500)
 max_bars_back(time, 500)
 
-g_MainOpt = 'Main Options'
+string g_MainOpt = 'Main Options'
 bool show_swingPoint = input.bool(true, 'Swing Points', group=g_MainOpt)
 bool show_marketStructure = input.bool(true, 'Market Structure', group=g_MainOpt)
 bool show_FVG = input.bool(true, title = 'Show FVGs',   group=g_MainOpt)
 bool show_iob = input.bool(true, 'Internal Order Blocks', group=g_MainOpt)
 bool show_sob = input.bool(true, 'Swing Order Blocks', group=g_MainOpt)
+bool show_preCh = input.bool(true, 'Predictive Channels' , group=g_MainOpt)
 bool show_pdZone = input.bool(true, 'Premium/Discount Zones' , group=g_MainOpt)
 bool show_srZone = input.bool(true, 'Support/Resistance Zone', group=g_MainOpt)
 bool show_srZoneDynamics = input.bool(true, 'Support/Resistance Dynamic Zones', group=g_MainOpt)
@@ -17,7 +18,7 @@ bool show_srZoneDynamics = input.bool(true, 'Support/Resistance Dynamic Zones', 
 // ------------------------------------------------
 
 color CLEAR = color.rgb(0,0,0,100)
-n = bar_index
+int n = bar_index
 int DEMAND_ZONE = 1
 int SUPPLY_ZONE = 2
 int TBD_ZONE = 0
@@ -33,56 +34,56 @@ int TBD_ZONE = 0
 // -----------------------------------------------------------------------------------------------
 //   Define User Input Variables
 // -----------------------------------------------------------------------------------------------
-g_MS = 'Market Structure'
-show_internals = input(true, 'Show Internal Structure' , group = g_MS)
-show_ibull = input.string('All', 'Bullish Structure' , options = ['All', 'BOS', 'CHoCH'] , inline = 'ibull' , group = g_MS)
-swing_ibull_css = input(#089981, '' , inline = 'ibull' , group = g_MS)
-show_ibear = input.string('All', 'Bearish Structure' , options = ['All', 'BOS', 'CHoCH'] , inline = 'ibear' , group = g_MS)
-swing_ibear_css = input(#f23645, '' , inline = 'ibear' , group = g_MS)
-ifilter_confluence = input(false, 'Confluence Filter' , group = g_MS)
-internal_structure_size = input.string('Tiny', 'Internal Label Size' , options = ['Tiny', 'Small', 'Normal'] , group = g_MS)
-show_Structure = input(true, 'Show Swing Structure' , group = g_MS)
-show_bull = input.string('All', 'Bullish Structure' , options = ['All', 'BOS', 'CHoCH'] , inline = 'bull' , group = g_MS)
-swing_bull_css = input(#089981, '' , inline = 'bull' , group = g_MS)
-show_bear = input.string('All', 'Bearish Structure' , options = ['All', 'BOS', 'CHoCH'] , inline = 'bear' , group = g_MS)
-swing_bear_css = input(#f23645, '' , inline = 'bear' , group = g_MS)
-swing_structure_size = input.string('Small', 'Swing Label Size' , options = ['Tiny', 'Small', 'Normal'] , group = g_MS)
-show_swings = input(false, 'Show Swings Points' , inline = 'swings' , group = g_MS)
-length = input.int(50, '' , minval = 10 , inline = 'swings' , group = g_MS)
-show_hl_swings = input(true, 'Show Strong/Weak High/Low' , group = g_MS)
-iob_showlast = input.int(5, 'Internal Order Blocks' , minval = 1 , inline = 'iob' , group = g_MS)
-ob_showlast = input.int(5, 'Swing Order Blocks' , minval = 1 , inline = 'ob' , group = g_MS)
-ob_filter = input.string('Atr', 'Order Block Filter' , options = ['Atr', 'Cumulative Mean Range'] , group = g_MS)
-ibull_ob_css = input.color(color.new(#3179f5, 93), 'Internal Bullish OB' , group = g_MS)
-ibear_ob_css = input.color(color.new(#f77c80, 93), 'Internal Bearish OB' , group = g_MS)
-bull_ob_css = input.color(color.new(#1848cc, 93), 'Bullish OB' , group = g_MS)
-bear_ob_css = input.color(color.new(#b22833, 93), 'Bearish OB' , group = g_MS)
-show_eq = input(true, 'Equal High/Low' , group = g_MS)
-eq_len = input.int(3, 'Bars Confirmation' , minval = 1 , group = g_MS)
-eq_threshold = input.float(0.1, 'Threshold' , minval = 0 , maxval = 0.5 , step = 0.1 , group = g_MS)
-eq_size = input.string('Tiny', 'Label Size' , options = ['Tiny', 'Small', 'Normal'] , group = g_MS)
-fvg_auto = input(true, "Auto Threshold" , group = g_MS)
-fvg_tf = input.timeframe('', "Timeframe" , group = g_MS)
-bull_fvg_css = input.color(color.new(#00ff68, 70), 'Bullish FVG' , group = g_MS)
-bear_fvg_css = input.color(color.new(#ff0008, 70), 'Bearish FVG' , group = g_MS)
-fvg_extend = input.int(1, "Extend FVG" , minval = 0 , group = g_MS)
-show_pdhl = input(false, 'Daily' , inline = 'daily' , group = g_MS)
-pdhl_style = input.string('⎯⎯⎯', '' , options = ['⎯⎯⎯', '----', '····'] , inline = 'daily' , group = g_MS)
-pdhl_css = input(#2157f3, '' , inline = 'daily' , group = g_MS)
-show_pwhl = input(false, 'Weekly' , inline = 'weekly' , group = g_MS)
-pwhl_style = input.string('⎯⎯⎯', '' , options = ['⎯⎯⎯', '----', '····'] , inline = 'weekly' , group = g_MS)
-pwhl_css = input(#2157f3, '' , inline = 'weekly' , group = g_MS)
-show_pmhl = input(false, 'Monthly' , inline = 'monthly' , group = g_MS)
-pmhl_style = input.string('⎯⎯⎯', '' , options = ['⎯⎯⎯', '----', '····'] , inline = 'monthly' , group = g_MS)
-pmhl_css = input(#2157f3, '' , inline = 'monthly' , group = g_MS)
-premium_css = input.color(#5500ff, 'Premium Zone' , group = g_MS)
-eq_css = input.color(#b2b5be, 'Equilibrium Zone' , group = g_MS)
-discount_css = input.color(#089981, 'Discount Zone' , group = g_MS)
-swingSize = input.int(20, 'Swing Length', group=g_MS)
-bosConfType = input.string('Candle Close', 'BOS Confirmation', ['Candle Close', 'Wicks'], group=g_MS)
-bosColor = input.color(color.rgb(112, 114, 119), 'Color', group=g_MS)
-bosStyle = input.string('Dashed', 'Line Style', ['Solid', 'Dashed', 'Dotted'], group=g_MS)
-bosWidth = input.int(1, 'Width', minval=1, group=g_MS)
+string g_MS = 'Market Structure'
+bool show_internals = input.bool(true, 'Show Internal Structure' , group = g_MS)
+string show_ibull = input.string('All', 'Bullish Structure' , options = ['All', 'BOS', 'CHoCH'] , inline = 'ibull' , group = g_MS)
+color swing_ibull_css = input(#089981, '' , inline = 'ibull' , group = g_MS)
+string show_ibear = input.string('All', 'Bearish Structure' , options = ['All', 'BOS', 'CHoCH'] , inline = 'ibear' , group = g_MS)
+color swing_ibear_css = input.color(#f23645, '' , inline = 'ibear' , group = g_MS)
+bool ifilter_confluence = input.bool(false, 'Confluence Filter' , group = g_MS)
+string internal_structure_size = input.string('Tiny', 'Internal Label Size' , options = ['Tiny', 'Small', 'Normal'] , group = g_MS)
+bool show_Structure = input.bool(true, 'Show Swing Structure' , group = g_MS)
+string show_bull = input.string('All', 'Bullish Structure' , options = ['All', 'BOS', 'CHoCH'] , inline = 'bull' , group = g_MS)
+color swing_bull_css = input(#089981, '' , inline = 'bull' , group = g_MS)
+string show_bear = input.string('All', 'Bearish Structure' , options = ['All', 'BOS', 'CHoCH'] , inline = 'bear' , group = g_MS)
+color swing_bear_css = input.color(#f23645, '' , inline = 'bear' , group = g_MS)
+string swing_structure_size = input.string('Small', 'Swing Label Size' , options = ['Tiny', 'Small', 'Normal'] , group = g_MS)
+bool show_swings = input.bool(false, 'Show Swings Points' , inline = 'swings' , group = g_MS)
+int length = input.int(50, '' , minval = 10 , inline = 'swings' , group = g_MS)
+bool show_hl_swings = input.bool(true, 'Show Strong/Weak High/Low' , group = g_MS)
+int iob_showlast = input.int(5, 'Internal Order Blocks' , minval = 1 , inline = 'iob' , group = g_MS)
+int ob_showlast = input.int(5, 'Swing Order Blocks' , minval = 1 , inline = 'ob' , group = g_MS)
+string ob_filter = input.string('Atr', 'Order Block Filter' , options = ['Atr', 'Cumulative Mean Range'] , group = g_MS)
+color ibull_ob_css = input.color(color.new(#3179f5, 93), 'Internal Bullish OB' , group = g_MS)
+color ibear_ob_css = input.color(color.new(#f77c80, 93), 'Internal Bearish OB' , group = g_MS)
+color bull_ob_css = input.color(color.new(#1848cc, 93), 'Bullish OB' , group = g_MS)
+color bear_ob_css = input.color(color.new(#b22833, 93), 'Bearish OB' , group = g_MS)
+bool show_eq = input.bool(true, 'Equal High/Low' , group = g_MS)
+int eq_len = input.int(3, 'Bars Confirmation' , minval = 1 , group = g_MS)
+float eq_threshold = input.float(0.1, 'Threshold' , minval = 0 , maxval = 0.5 , step = 0.1 , group = g_MS)
+string eq_size = input.string('Tiny', 'Label Size' , options = ['Tiny', 'Small', 'Normal'] , group = g_MS)
+bool fvg_auto = input.bool(true, "Auto Threshold" , group = g_MS)
+string fvg_tf = input.timeframe('', "Timeframe" , group = g_MS)
+color bull_fvg_css = input.color(color.new(#00ff68, 70), 'Bullish FVG' , group = g_MS)
+color bear_fvg_css = input.color(color.new(#ff0008, 70), 'Bearish FVG' , group = g_MS)
+int fvg_extend = input.int(1, "Extend FVG" , minval = 0 , group = g_MS)
+bool show_pdhl = input.bool(false, 'Daily' , inline = 'daily' , group = g_MS)
+string pdhl_style = input.string('⎯⎯⎯', '' , options = ['⎯⎯⎯', '----', '····'] , inline = 'daily' , group = g_MS)
+color pdhl_css = input.color(#2157f3, '' , inline = 'daily' , group = g_MS)
+bool show_pwhl = input.bool(false, 'Weekly' , inline = 'weekly' , group = g_MS)
+string pwhl_style = input.string('⎯⎯⎯', '' , options = ['⎯⎯⎯', '----', '····'] , inline = 'weekly' , group = g_MS)
+color pwhl_css = input.color(#2157f3, '' , inline = 'weekly' , group = g_MS)
+bool show_pmhl = input.bool(false, 'Monthly' , inline = 'monthly' , group = g_MS)
+string pmhl_style = input.string('⎯⎯⎯', '' , options = ['⎯⎯⎯', '----', '····'] , inline = 'monthly' , group = g_MS)
+color pmhl_css = input.color(#2157f3, '' , inline = 'monthly' , group = g_MS)
+color premium_css = input.color(#5500ff, 'Premium Zone' , group = g_MS)
+color eq_css = input.color(#b2b5be, 'Equilibrium Zone' , group = g_MS)
+color discount_css = input.color(#089981, 'Discount Zone' , group = g_MS)
+int swingSize = input.int(20, 'Swing Length', group=g_MS)
+string bosConfType = input.string('Candle Close', 'BOS Confirmation', ['Candle Close', 'Wicks'], group=g_MS)
+color bosColor = input.color(color.rgb(112, 114, 119), 'Color', group=g_MS)
+string bosStyle = input.string('Dashed', 'Line Style', ['Solid', 'Dashed', 'Dotted'], group=g_MS)
+int bosWidth = input.int(1, 'Width', minval=1, group=g_MS)
 
 // -----------------------------------------------------------------------------------------------
 //   Functions
@@ -604,14 +605,14 @@ alertcondition(bearish_fvg_cnd, 'Bearish FVG', 'Bearish FVG formed')
 // -----------------------------------------------------------------------------------------------
 //   Define User Input Variables
 // -----------------------------------------------------------------------------------------------
-len = input.int   (5, title = 'Length', inline = 'MS', minval = 3, maxval = 10, group = g_MS)
-i_BPR = input.bool(false, title = 'Balance Price Range', group = g_MS)
-i_FVG = input.string('FVG', title = 'Options', options=['FVG', 'IFVG'], tooltip = 'Fair Value Gaps\nor\nImplied Fair Value Gaps', group = g_MS)
-visBxs = input.int(2, title = '# Visible FVG\'s', minval = 1, maxval = 20, tooltip = 'In the same direction', group = g_MS)
-cFVGbl = input.color (color.new(#00e676, 0), title = 'Bullish FVG  ', inline = 'FVGbl', group = g_MS)
-cFVGblBR = input.color (color.new(#808000, 0), title = 'Break', inline = 'FVGbl', group = g_MS)
-cFVGbr = input.color (color.new(#ff5252, 0), title = 'Bearish FVG ', inline = 'FVGbr', group = g_MS)
-cFVGbrBR = input.color (color.new(#FF0000, 0), title = 'Break', inline = 'FVGbr', group = g_MS)
+int len = input.int(5, title = 'Length', inline = 'MS', minval = 3, maxval = 10, group = g_MS)
+bool i_BPR = input.bool(false, title = 'Balance Price Range', group = g_MS)
+string i_FVG = input.string('FVG', title = 'Options', options=['FVG', 'IFVG'], tooltip = 'Fair Value Gaps\nor\nImplied Fair Value Gaps', group = g_MS)
+int visBxs = input.int(2, title = '# Visible FVG\'s', minval = 1, maxval = 20, tooltip = 'In the same direction', group = g_MS)
+color cFVGbl = input.color (color.new(#00e676, 0), title = 'Bullish FVG  ', inline = 'FVGbl', group = g_MS)
+color cFVGblBR = input.color (color.new(#808000, 0), title = 'Break', inline = 'FVGbl', group = g_MS)
+color cFVGbr = input.color (color.new(#ff5252, 0), title = 'Bearish FVG ', inline = 'FVGbr', group = g_MS)
+color cFVGbrBR = input.color (color.new(#FF0000, 0), title = 'Break', inline = 'FVGbr', group = g_MS)
 
 // -----------------------------------------------------------------------------------------------
 //   Global Variables
@@ -767,6 +768,67 @@ if i_BPR
                         getDNi.box.set_right(bar_index)
                         getDNi.active := false
 
+
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════ //
+//# * ══════════════════════════════════════════════════════════════════════════════════════════════
+//# *
+//# * Module : Predictive Channels
+//# *
+//# * ══════════════════════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════════════════════════ //
+
+// -----------------------------------------------------------------------------------------------
+//   Define User Input Variables
+// -----------------------------------------------------------------------------------------------
+
+string g_preCh = 'Predictive Channels'
+float mult  = input.float(5, 'Factor', minval = 0, group=g_preCh)
+float slope = input.float(50, minval = 0, group=g_preCh) * mult
+color r2Css = input.color(#f23645, 'Upper Resistance', inline = 'resistance', group=g_preCh)
+color r1Css = input.color(color.new(#f23645, 50), 'Lower', inline = 'resistance', group=g_preCh)
+color s1Css = input.color(color.new(#089981, 50), 'Upper Support    ', inline = 'support', group=g_preCh)
+color s2Css = input.color(#089981, 'Lower', inline = 'support', group=g_preCh)
+color avgCss = input.color(#787b86, 'Average', group=g_preCh)
+color areaBull = input.color(color.new(#089981, 80), 'Fill', inline = 'area', group=g_preCh)
+color areaBear = input.color(color.new(#f23645, 80), '', inline = 'area', group=g_preCh)
+
+
+// -----------------------------------------------------------------------------------------------
+//   Calculations
+// -----------------------------------------------------------------------------------------------
+
+var pc_avg = close
+var os = 1
+var pc_hold_atr = 0.
+
+atr_mult = nz(ta.atr(200)) * mult
+pc_avg := math.abs(close - pc_avg) > atr_mult ? close 
+  : pc_avg + os * pc_hold_atr / slope
+pc_hold_atr := pc_avg == close ? atr_mult / 2 : pc_hold_atr
+os := pc_avg > pc_avg[1] ? 1 : pc_avg < pc_avg[1] ? -1 : os
+pc_R2 = pc_avg + pc_hold_atr
+pc_R1 = pc_avg + pc_hold_atr/2
+pc_S1 = pc_avg - pc_hold_atr/2
+pc_S2 = pc_avg - pc_hold_atr
+
+// -----------------------------------------------------------------------------------------------
+//   Drawing
+// -----------------------------------------------------------------------------------------------
+
+plot_0 = plot(show_preCh ? close : na, color = na, display = display.none, editable = false)
+plot_avg = plot(show_preCh ? pc_avg : na, 'Average', close == pc_avg ? na : avgCss)
+
+plot(show_preCh ? pc_R2 : na, 'Upper Resistance', close == pc_avg ? na : r2Css)
+plot(show_preCh ? pc_R1 : na, 'Lower Resistance', close == pc_avg ? na : r1Css)
+plot(show_preCh ? pc_S1 : na, 'Upper Support', close == pc_avg ? na : s1Css)
+plot(show_preCh ? pc_S2 : na, 'Lower Support', close == pc_avg ? na : s2Css)
+
+topcss = close > pc_avg ? areaBull : color.new(chart.bg_color, 100)
+btmcss = close < pc_avg ? areaBear : color.new(chart.bg_color, 100)
+fill(plot_0, plot_avg, pc_R2, pc_S2, topcss, btmcss)
+
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════ //
 //# * ══════════════════════════════════════════════════════════════════════════════════════════════
 //# *
@@ -778,18 +840,18 @@ if i_BPR
 // -----------------------------------------------------------------------------------------------
 //   Define User Input Variables
 // -----------------------------------------------------------------------------------------------
-g_dsZone = 'Demand/Supply Zones'
-indecision_factor = input.int(2, 'Min. Factor', minval = 1, group = g_dsZone)
-volume_periods = input.int(20, 'Previous Periods', minval = 1, group = g_dsZone)
-volume_chg = input.int(10, 'Volume Change (%)', minval = 1, group = g_dsZone)
-confirm_bars = input.int(5, 'Confirmation Bars', minval = 1, group = g_dsZone)
-invalidation = input.string('Close', 'Invalidation Method', options = ['Close', 'Wick'], group = g_dsZone)
-showlast = input.int(10, 'Show Last', minval = 1, group = g_dsZone)
-demand_zone_css = input.color(color.new(#66bb6a, 93), 'Demand', inline = "Zones", group = g_dsZone)
-supply_zone_css = input.color(color.new(#f77c80, 93), 'Supply', inline = "Zones", group = g_dsZone)
-indecision_zone_css = input.color(color.new(#777575, 93), 'Indecision', inline = "Zones",group = g_dsZone)
-show_srZone_text = input.bool(false, 'Show Text', group = g_dsZone)
-text_size = input.string('Small', 'Text Size', options = ['Tiny', 'Small', 'Normal'], group = g_dsZone)
+string g_dsZone = 'Demand/Supply Zones'
+int indecision_factor = input.int(2, 'Min. Factor', minval = 1, group = g_dsZone)
+int volume_periods = input.int(20, 'Previous Periods', minval = 1, group = g_dsZone)
+int volume_chg = input.int(10, 'Volume Change (%)', minval = 1, group = g_dsZone)
+int confirm_bars = input.int(5, 'Confirmation Bars', minval = 1, group = g_dsZone)
+string invalidation = input.string('Close', 'Invalidation Method', options = ['Close', 'Wick'], group = g_dsZone)
+int showlast = input.int(10, 'Show Last', minval = 1, group = g_dsZone)
+color demand_zone_css = input.color(color.new(#66bb6a, 93), 'Demand', inline = "Zones", group = g_dsZone)
+color supply_zone_css = input.color(color.new(#f77c80, 93), 'Supply', inline = "Zones", group = g_dsZone)
+color indecision_zone_css = input.color(color.new(#777575, 93), 'Indecision', inline = "Zones",group = g_dsZone)
+bool show_srZone_text = input.bool(false, 'Show Text', group = g_dsZone)
+string text_size = input.string('Small', 'Text Size', options = ['Tiny', 'Small', 'Normal'], group = g_dsZone)
 
 // -----------------------------------------------------------------------------------------------
 //   Global Variables
@@ -996,16 +1058,16 @@ alertcondition(supply_zone_confirmed, 'Supply Zone Confirmed', 'There is new SUP
 // -----------------------------------------------------------------------------------------------
 //   Define User Input Variables
 // -----------------------------------------------------------------------------------------------
-g_dsDZ = 'Demand/Supply Dynamic Zones'
-dz_mult = input.float(8., 'Multiplicative Factor', minval = 0, step = .5, group = g_dsDZ)
-atrLen = input.int(50, 'ATR Length', minval = 0, group = g_dsDZ)
-extLast = input.int(4, 'Extend Last', minval = 0, group = g_dsDZ)
-supCss = input.color(#089981, 'Support', inline = 'sup', group = g_dsDZ)
-supAreaCss = input(color.new(#089981, 80), 'Areas', inline = 'sup', group = g_dsDZ)
-resCss = input.color(#f23645, 'Resistance', inline = 'res', group = g_dsDZ)
-resAreaCss = input(color.new(#f23645, 80), 'Areas', inline = 'res', group = g_dsDZ)
-extLvls = input(true, 'Extend Levels', group = g_dsDZ)
-extArea = input(true, 'Extend Areas', group = g_dsDZ)
+string g_dsDZ = 'Demand/Supply Dynamic Zones'
+float dz_mult = input.float(8., 'Multiplicative Factor', minval = 0, step = .5, group = g_dsDZ)
+int atrLen = input.int(50, 'ATR Length', minval = 0, group = g_dsDZ)
+int extLast = input.int(4, 'Extend Last', minval = 0, group = g_dsDZ)
+color supCss = input.color(#089981, 'Support', inline = 'sup', group = g_dsDZ)
+color supAreaCss = input.color(color.new(#089981, 80), 'Areas', inline = 'sup', group = g_dsDZ)
+color resCss = input.color(#f23645, 'Resistance', inline = 'res', group = g_dsDZ)
+color resAreaCss = input.color(color.new(#f23645, 80), 'Areas', inline = 'res', group = g_dsDZ)
+bool extLvls = input.bool(true, 'Extend Levels', group = g_dsDZ)
+bool extArea = input.bool(true, 'Extend Areas', group = g_dsDZ)
 
 // -----------------------------------------------------------------------------------------------
 //   Calculations
