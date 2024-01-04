@@ -1,0 +1,659 @@
+//@version=5
+indicator('IJN Panel Z', 'IJN Pn-Z', format=format.volume, timeframe='', timeframe_gaps=true)
+
+// ------------------------------------------------
+//                     Global
+// ------------------------------------------------
+
+color CLEAR = color.rgb(0,0,0,100)
+color c_na = color.new(color.white, 100)
+import ClassicScott/MyMovingAveragesLibrary/3 as mymas
+import ClassicScott/MyVolatilityBands/3 as volbands
+
+_inRange(cond, min, max) =>
+    bars = ta.barssince(cond == true)
+    min <= bars and bars <= max
+
+string g_MainOpt = 'Main Options'
+bool show_wt1 = input.bool(true, 'Show Primary WaveTrend', group=g_MainOpt)
+bool show_wt2 = input.bool(true, 'Show Secondary WaveTrend', group=g_MainOpt)
+bool show_obos_zone = input.bool(true, 'Show OB/OS Zone', group=g_MainOpt)
+bool show_mom_change = input.bool(true, 'Show Momentum Change', group=g_MainOpt)
+bool show_sig_wto_cross = input.bool(true, 'Show Signal Line Cross', group=g_MainOpt)
+bool show_kvo = input.bool(true, 'Show Klinger Oscillator', group=g_MainOpt)
+bool show_kvo_smooth = input.bool(true, 'Show Primary Smoothed KVO', group=g_MainOpt)
+bool show_kvo_smooth2 = input.bool(true, 'Show Secondary Smoothed KVO', group=g_MainOpt)
+bool show_donchain = input.bool(true, 'Show Donchain Channel', group=g_MainOpt)
+bool show_donchain_basis = input.bool(true, 'Show Donchain Bias Line', group=g_MainOpt)
+bool show_sig_kvo_cross = input.bool(true, 'Show KVO Signal Primary Line Cross', group=g_MainOpt)
+bool show_sig2_kvo_cross = input.bool(true, 'Show KVO Signal Secondary Line Cross', group=g_MainOpt)
+bool show_wto_div = input.bool(true, title='Show WTO Divergences', group=g_MainOpt)
+bool show_kvo_div = input.bool(true, title='Show KVO Divergences', group=g_MainOpt)
+bool bar_color = input.bool(true, title='Paint Bar colors', group=g_MainOpt)
+
+string g_barColor = 'Bar Colors'
+string i_bc_selection = input.string('WT 1 Gradient', 'Bar Colors Type', options=['WT 1 Gradient', 'WT 1 Centerline', 'WT 1 Extremes', 'WT 2 Gradient', 'WT 2 Centerline', 'KVO | Centerline', 'KVO | Signal Line', 'KVO | Gradient', 'Smoothed KVO | Centerline', 'Smoothed KVO | Secondary Signal Line', 'Smoothed KVO | Gradient'], group=g_MainOpt)
+string i_high_extreme = input.string('60', 'High Extreme', options=['0', '10', '20', '30', '40', '50', '60', '70', '80'], group=g_barColor)
+string i_low_extreme = input.string('-60', 'Low Extreme', options=['0', '-10', '-20', '-30', '-40', '-50', '-60', '-70', '-80'], group=g_barColor)
+color bc_wto_1_up = input.color(color.new(#ff9800, 0), title='WT 1 Up', inline='bc_wto1', group=g_barColor)
+color bc_wto_1_down = input.color(color.new(#2962ff, 0), title='WT 1 Down', inline='bc_wto1', group=g_barColor)
+color bc_wto_2_up = input.color(color.new(#00bcd4, 0), title='WT 2 Up', inline='bc_wto2', group=g_barColor)
+color bc_wto_2_down = input.color(color.new(#e91e63, 0), title='WT 2 Down', inline='bc_wto2', group=g_barColor)
+color bc_kvo_up = input.color(color.new(#ff9800, 0), 'KVO Bullish', inline='bc_kvo', group=g_barColor)
+color bc_kvo_down = input.color(color.new(#2962ff, 0), 'KVO Bearish', inline='bc_kvo', group=g_barColor)
+color bc_sig_up = input.color(color.new(#00bcd4, 0), 'KVO Signal Bullish', inline='bc_sig', group=g_barColor)
+color bc_sig_down = input.color(color.new(#e91e63, 0), 'KVO Signal Bearish', inline='bc_sig', group=g_barColor)
+color bc_neut = input.color(color.new(#787b86, 0), 'Neutral', inline='bc', group=g_barColor)
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════ //
+//# * ══════════════════════════════════════════════════════════════════════════════════════════════
+//# *
+//# * Module : WaveTrend Oscillator (WTO)
+//# *
+//# * ══════════════════════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════════════════════════ //
+
+// Assembled by @ClassicScott
+// original author @LazyBear
+
+// I'm guessing most of you are familiar with LazyBear's adaptation of the Wavetrend Oscillator; it's one of the most popular indicators on
+// TradingView.
+
+// I know others have done adaptations of it, but I thought I might as well, because that's kind of a thing I like doing. 
+
+// In this version I've added a second Wavetrend plot. This is a thing I like to do. The slower plot gives you a slower momentum bias, while the
+// faster plot can give you entries and/or exits.
+
+// With the traditional Wavetrend Oscillator there is a simple moving average on the oscillator that is to help provide entry and exit signals.
+// I've done away with this as there are already two plots, and I felt more would just clutter the indicator. Instead of plotting the moving
+// average I've plotted the crosses along the bottom and top of the indicator. Also, as is not the case in LazyBear's version, this SMA period
+// is adjustable. By default it is set to 4, which is the default setting on the original indicator. Also, while I'm mentioning default settings
+// they are 10 and 21 for the channel and average on Lazybear's indicator. Mine are very obviously different. Change things around and see what
+// you like.
+
+// I've also plotted background colors for when there is what I call a momentum shift. Basically if one or the other oscillators crosses the
+// centerline a colored bar is plotted. By default it is turned on for both WTOs, though in practice you might only want it on for the longer
+// one.
+
+// I would say use of the indicator is similar to the original WTO and many other oscillators. Buying oversold and selling overbought, while
+// being mindful of the momentum of the market. If the slower WTO is above the centerline it's best to be looking for dips to the centerline, or
+// for an overbought signal by the faster WTO, and vice versa if the slower WTO is below the centerline. That said, you can also adjust the
+// lookback of the signal line on the faster WTO to fine tune entries or exits, which is kind of how you would trade LazyBear's version.
+// In this case you have that additional confirmation of market momentum.
+
+// I will also say that crosses of the faster and slower oscillator plots may provide you signals as well.
+// You can set bar coloring to either of the WTO plots via a dropdown menu.
+// There are alerts for overbought and oversold situations, centerline crosses, and Wavetrend crosses.
+// That's about it. Hope you enjoy this particular implementation of LazyBear's well known indicator.
+
+// Ah yes, last thing: Original version the source is set to hlc3. I've given you the opportunity to change that, so if you prefer using close
+// you can.
+
+// -----------------------------------------------------------------------------------------------
+//   Define User Input Variables
+// -----------------------------------------------------------------------------------------------
+
+string g_WTO = 'WaveTrend Oscillator (WTO)'
+series float wto_src = input(defval=hlc3, title='Source', group=g_WTO)
+color fill_upper = input.color(color.new(#ff5252, 90), title='Overbought Zone', group=g_WTO)
+color fill_lower = input.color(color.new(#2196f3, 90), title='Oversold Zone', group=g_WTO)
+
+string g_WTO_Wt = 'WaveTrend'
+//WAVETREND PLOT ONE
+int wt_1_channel_lkbk = input.int(defval=8, title='WT 1 Channel Lookback', group=g_WTO_Wt)
+int wt_1_average_lkbk = input.int(defval=13, title='WT 1 Average Lookback', group=g_WTO_Wt)
+int wt_1_ma_lkbk = input.int(defval=4, title='WT 1 Signal Line Lookback', group=g_WTO_Wt)
+color wt_1_up = input.color(color.new(#00bcd4, 0), title='Bullish Wavetrend', inline='wt 1 color', group=g_WTO_Wt)
+color wt_1_down = input.color(color.new(#e91e63, 0), title='Bearish Wavetrend', inline='wt 1 color', group=g_WTO_Wt)
+color mom_long_color_1 = input.color(color.new(color.blue, 85), title='WT1 Momentum Long', inline='1', group=g_WTO_Wt)
+color mom_short_color_1 = input.color(color.new(color.red, 85), title='WT1 Momentum Short', inline='1', group=g_WTO_Wt)
+string sig_wto_cross_location = input.string('top/bottom', 'Signal Line Cross Location', options=['top/bottom', 'on wavetrend'], group=g_WTO_Wt)
+//WAVETREND PLOT TWO
+int wt_2_channel_lkbk = input.int(defval=13, title='WT 2 Channel Lookback', group=g_WTO_Wt)
+int wt_2_average_lkbk = input.int(defval=34, title='WT 2 Average Lookback', group=g_WTO_Wt)
+color wt_2_up = input.color(color.new(#00bcd4, 0), title='Bullish Wavetrend', inline='wt 2 color', group=g_WTO_Wt)
+color wt_2_down = input.color(color.new(#e91e63, 0), title='Bearish Wavetrend', inline='wt 2 color', group=g_WTO_Wt)
+color mom_long_color_2 = input.color(color.new(color.blue, 85), title='WT2 Momentum Long', inline='2', group=g_WTO_Wt)
+color mom_short_color_2 = input.color(color.new(color.red, 85), title='WT2 Momentum Short', inline='2', group=g_WTO_Wt)
+
+string g_WTO_Div = 'WaveTrend Divergences'
+string i_wto_div_select = input.string(defval='Wavetrend 1', options=['Wavetrend 1', 'Wavetrend 2'], title='Source for Divergences', group=g_WTO_Div)
+int wto_div_lkbk_right = input.int(title='Pivot Lookback Right', defval=5, group=g_WTO_Div)
+int wto_div_lkbk_left = input.int(title='Pivot Lookback Left', defval=5, group=g_WTO_Div)
+int wto_div_max_range = input.int(title='Max of Lookback Range', defval=60, group=g_WTO_Div)
+int wto_div_min_range = input.int(title='Min of Lookback Range', defval=5, group=g_WTO_Div)
+string wto_div_location = input.string('top/bottom', 'Plot Divergences Location', options=['top/bottom', 'on wave line'], group=g_WTO_Div)
+int wto_div_wid = input.int(2, 'Divergences Line With', group=g_WTO_Div)
+bool wto_div_bull = input.bool(true, 'Bull', group=g_WTO_Div)
+bool wto_div_hdn_bull = input.bool(true, 'Hidden Bull', group=g_WTO_Div)
+bool wto_div_bear = input.bool(true, 'Bear', group=g_WTO_Div)
+bool wto_div_hdn_bear = input.bool(true, 'Hidden Bear', group=g_WTO_Div)
+color c_wto_bull = input.color(color.new(#21f380, 40), 'WTO Bull', inline='bull div', group=g_WTO_Div)
+color c_wto_hdn_bull = input.color(color.new(#3bffff, 40), 'WTO Hidden Bull', inline='bull div', group=g_WTO_Div)
+color c_wto_bear = input.color(color.new(color.red, 40), 'WTO Bear', inline='bear div', group=g_WTO_Div)
+color c_wto_hdn_bear = input.color(color.new(#fba440, 40), 'WTO Hidden Bear', inline='bear div', group=g_WTO_Div)
+color c_wto_text = input.color(color.new(color.white, 40), 'WTO Text', inline='text', group=g_WTO_Div)
+
+// -----------------------------------------------------------------------------------------------
+//   Calculations
+// -----------------------------------------------------------------------------------------------
+
+// WAVETREND PLOT ONE
+esa = ta.ema(wto_src, wt_1_channel_lkbk)
+d = ta.ema(math.abs(wto_src - esa), wt_1_channel_lkbk)
+ci = (wto_src - esa) / (0.015 * d)
+tci = ta.ema(ci, wt_1_average_lkbk)
+wt_1 = tci
+wt_1_ma = ta.sma(wt_1, wt_1_ma_lkbk)
+wt_1_color = color.from_gradient(wt_1, -80, 80, wt_1_down, wt_1_up)
+mom_change_long_1 = ta.crossover(wt_1, 0)
+mom_change_short_1 = ta.crossunder(wt_1, 0)
+
+// WAVETREND PLOT TWO
+esa2 = ta.ema(wto_src, wt_2_channel_lkbk)
+d2 = ta.ema(math.abs(wto_src - esa2), wt_2_channel_lkbk)
+ci2 = (wto_src - esa2) / (0.015 * d2)
+tci2 = ta.ema(ci2, wt_2_average_lkbk)
+wt_2 = tci2
+wt_2_color = color.from_gradient(wt_2, -60, 60, wt_2_down, wt_2_up)
+mom_change_long_2 = show_wt2 and ta.crossover(wt_2, 0)
+mom_change_short_2 = show_wt2 and ta.crossunder(wt_2, 0)
+
+// WAVETREND - RANGE EXTREMES
+os_80 = wt_1 <= -80
+os_70 = wt_1 <= -70
+os_60 = wt_1 <= -60
+os_50 = wt_1 <= -50
+os_40 = wt_1 <= -40
+os_30 = wt_1 <= -30
+os_20 = wt_1 <= -20
+os_10 = wt_1 <= -10
+os_0 = wt_1 <= 0
+ob_0 = wt_1 >= 0
+ob_10 = wt_1 >= 10
+ob_20 = wt_1 >= 20
+ob_30 = wt_1 >= 30
+ob_40 = wt_1 >= 40
+ob_50 = wt_1 >= 50
+ob_60 = wt_1 >= 60
+ob_70 = wt_1 >= 70
+ob_80 = wt_1 >= 80
+
+low_extreme = i_low_extreme == '0' ? os_0 : i_low_extreme == '-10' ? os_10 : i_low_extreme == '-20' ? os_20 : i_low_extreme == '-30' ? os_30 : i_low_extreme == '-40' ? os_40 : i_low_extreme == '-50' ? os_50 : i_low_extreme == '-60' ? os_60 : i_low_extreme == '-70' ? os_70 : i_low_extreme == '-80' ? os_80 : na
+high_extreme = i_high_extreme == '0' ? ob_0 : i_high_extreme == '10' ? ob_10 : i_high_extreme == '20' ? ob_20 : i_high_extreme == '30' ? ob_30 : i_high_extreme == '40' ? ob_40 : i_high_extreme == '50' ? ob_50 : i_high_extreme == '60' ? ob_60 : i_high_extreme == '70' ? ob_70 : i_high_extreme == '80' ? ob_80 : na
+
+// SIGNAL LINE CROSS
+sig_wto_crossOver = show_sig_wto_cross and ta.crossover(wt_1, wt_1_ma)
+sig_wto_crossUnder = show_sig_wto_cross and ta.crossunder(wt_1, wt_1_ma)
+
+// DIVERGENCES
+wto_div_select = i_wto_div_select == 'Wavetrend 1' ? wt_1 : i_wto_div_select == 'Wavetrend 2' ? wt_2 : na
+wto_pl_found = na(ta.pivotlow(wto_div_select, wto_div_lkbk_left, wto_div_lkbk_right)) ? false : true
+wto_ph_found = na(ta.pivothigh(wto_div_select, wto_div_lkbk_left, wto_div_lkbk_right)) ? false : true
+
+// -- Bullish
+bool plot_wto_bull = wto_div_bull and show_wto_div
+wto_osc_hl = wto_div_select[wto_div_lkbk_right] > ta.valuewhen(wto_pl_found, wto_div_select[wto_div_lkbk_right], 1) and _inRange(wto_pl_found[1], wto_div_min_range, wto_div_max_range)
+wto_price_ll = low[wto_div_lkbk_right] < ta.valuewhen(wto_pl_found, low[wto_div_lkbk_right], 1)
+wto_bull_cond = plot_wto_bull and wto_price_ll and wto_osc_hl and wto_pl_found
+// -- Hidden Bullish
+bool plot_wto_hdn_bull = wto_div_hdn_bull and show_wto_div
+wto_osc_ll = wto_div_select[wto_div_lkbk_right] < ta.valuewhen(wto_pl_found, wto_div_select[wto_div_lkbk_right], 1) and _inRange(wto_pl_found[1], wto_div_min_range, wto_div_max_range)
+wto_price_hl = low[wto_div_lkbk_right] > ta.valuewhen(wto_pl_found, low[wto_div_lkbk_right], 1)
+wto_hdn_bull_cond = plot_wto_hdn_bull and wto_price_hl and wto_osc_ll and wto_pl_found
+// -- Bearish
+bool plot_wto_bear = wto_div_bear and show_wto_div
+wto_osc_lh = wto_div_select[wto_div_lkbk_right] < ta.valuewhen(wto_ph_found, wto_div_select[wto_div_lkbk_right], 1) and _inRange(wto_ph_found[1], wto_div_min_range, wto_div_max_range)
+wto_price_hh = high[wto_div_lkbk_right] > ta.valuewhen(wto_ph_found, high[wto_div_lkbk_right], 1)
+wto_bear_cond = plot_wto_bear and wto_price_hh and wto_osc_lh and wto_ph_found
+// -- Hidden Bearish
+bool plot_wto_hdn_bear = wto_div_hdn_bear and show_wto_div
+wto_osc_hh = wto_div_select[wto_div_lkbk_right] > ta.valuewhen(wto_ph_found, wto_div_select[wto_div_lkbk_right], 1) and _inRange(wto_ph_found[1], wto_div_min_range, wto_div_max_range)
+wto_price_lh = high[wto_div_lkbk_right] < ta.valuewhen(wto_ph_found, high[wto_div_lkbk_right], 1)
+wto_hdn_bear_cond = plot_wto_hdn_bear and wto_price_lh and wto_osc_hh and wto_ph_found
+
+
+// -----------------------------------------------------------------------------------------------
+//   Drawing
+// -----------------------------------------------------------------------------------------------
+
+// HORIZONTAL LINES AND OVERBOUGHT/OVERSOLD REGIONS
+zero = hline(0, color=color.new(color.white, 60), linestyle=hline.style_solid, title='Zero')
+line_upper = hline(100, color=color.new(color.white, 65), linestyle=hline.style_solid, title='Upper')
+line_lower = hline(-100, color=color.new(color.white, 65), linestyle=hline.style_solid, title='Lower')
+wto_1_overbought = hline(60, color=#ef5350, linestyle=hline.style_dotted, title='60', display=display.none)
+wto_1_oversold = hline(-60, color=#2196f3, linestyle=hline.style_dotted, title='-60', display=display.none)
+wto_2_overbought = hline(80, color=color.new(#ffffff, 80), linestyle=hline.style_dashed, title='80')
+wto_2_oversold = hline(-80, color=color.new(#ffffff, 80), linestyle=hline.style_dashed, title='-80')
+
+// PLOTS, FILLS, BACKGROUND COLORS, BAR COLORS
+plot(show_wt1 ? wt_1: na, color=color.new(wt_1_color, 60), title='Primary Wavetrend')
+plot(show_wt1 ? wt_1: na, color=color.new(wt_1_color, 80), title='Primary Wavetrend', style=plot.style_area)
+plot(show_wt2 ? wt_2 : na, color=color.new(wt_2_color, 60), title='Secondary Wavetrend')
+plot(show_wt2 ? wt_2 : na, color=color.new(wt_2_color, 80), title='Secondary Wavetrend', style=plot.style_area)
+
+bgcolor(show_mom_change and mom_change_long_1 ? mom_long_color_1 : na, title='Bullish Centerline Cross')
+bgcolor(show_mom_change and mom_change_short_1 ? mom_short_color_1 : na, title='Bearish Centerline Cross')
+bgcolor(show_mom_change and mom_change_long_2 ? mom_long_color_2 : na, title='Bullish Centerline Cross - Secondary WTO')
+bgcolor(show_mom_change and mom_change_short_2 ? mom_short_color_2 : na, title='Bearish Centerline Cross - Secondary WTO')
+
+fill(line_upper, wto_2_overbought, color=show_obos_zone ? fill_upper : na, title='Overbought Region')
+fill(line_upper, wto_1_overbought, color=show_obos_zone ? fill_upper : na, title='Overbought Region Extreme')
+fill(line_lower, wto_2_oversold, color=show_obos_zone ? fill_lower : na, title='Oversold Region')
+fill(line_lower, wto_1_oversold, color=show_obos_zone ? fill_lower : na, title='Oversold Region Extreme')
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════ //
+//# * ══════════════════════════════════════════════════════════════════════════════════════════════
+//# *
+//# * Module : Klinger Volume Oscillator (KVO)
+//# *
+//# * ══════════════════════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════════════════════════ //
+
+// Assembled by @ClassicScott
+
+// A version of Stephen J. Klinger's, Klinger Oscillator (sometimes called Klinger Volume Oscillator). I've changed virtually nothing about the
+// indicator itself, but added some lookback inputs for the EMAs the oscillator is derived from (traditionally 34 and 55), and added a few other
+// things, as is my wont.
+
+// But what is the Klinger Oscillator? Essentially, the calculation looks at the change in close of the current period vs the previous, and adds
+// volume if the close is greater, and subtracts volume if it is less. It then takes an EMA of two different lookback periods of that calculation
+// and subtracts one from the other. That's your oscillator. A signal line is slapped on top that a trader can use, in combination with the zero
+// line, for taking trades. Investopedia has a good article on it, so if you're looking for more specifics, check there.
+
+// What I've done is add a selection of different moving averages that you may choose for the signal line. Usually it's a 13 period EMA, and that
+// comes default. As an update (July 08, 2023), I've added a secondary signal line. The Klinger is a choppy oscillator, so by removing it from
+// the chart and replacing it with a smoothed version (the primary signal line) you will get far fewer false signals either by it crossing the
+// centerline or by it crossing the (secondary) signal line.
+
+// Of course there are all the usual additions of mine with the various ways of coloring the indicator and bars, adjustable Donchian Channels
+// Bands, and alerts.
+
+
+
+// -----------------------------------------------------------------------------------------------
+//   Define User Input Variables
+// -----------------------------------------------------------------------------------------------
+
+string g_KVO = 'Klinger Volume Oscillator (KVO)'
+series float kvo_src = input(close, 'Source for KVO', group=g_KVO)
+float kvo_graph_ratio = input.float(4.5, 'KVO Graph Scale Ration', tooltip='default is 1:4.5 (kvo_scale:graph_scale)', group=g_KVO)
+int kvo_lkbk_1 = input.int(34, title='Lookback for EMA 1', minval=1, group=g_KVO)
+int kvo_lkbk_2 = input.int(55, title='Lookback for EMA 2', minval=1, group=g_KVO)
+string i_kvo_color_selection = input.string('Gradient', 'Reference for KVO Colors', options=['Centerline', 'Signal Line', 'Gradient'], group=g_KVO)
+color bull_kvo_color = input.color(color.new(#ff9800, 0), 'KVO Bullish', inline='kvo_c', group=g_KVO)
+color neut_kvo_color = input.color(color.new(#b8b8b8, 0), 'KVO Neutral', inline='kvo_c', group=g_KVO)
+color bear_kvo_color = input.color(color.new(#2962ff, 0), 'KVO Bearish', inline='kvo_c', group=g_KVO)
+string sig_kvo_cross_location = input.string('top/bottom', 'Signal Line Cross Location', options=['top/bottom', 'on wavetrend'], group=g_KVO)
+color c_x1_up = input.color(color.new(#ff9800, 10), title='Bullish Primary Line Cross', inline='x1', group=g_KVO)
+color c_x1_down = input.color(color.new(#2962ff, 10), title='Bearish Primary Line Cross', inline='x1', group=g_KVO)
+color c_x2_up = input.color(color.new(#eeff00, 10), title='Bullish Secondary Line Cross', inline='x1', group=g_KVO)
+color c_x2_down = input.color(color.new(#29c2ff, 10), title='Bearish Secondary Line Cross', inline='x1', group=g_KVO)
+
+string g_KVO_smooth = 'Primary Smooth KVO'
+string sig_ma = input.string('Exponential - EMA', 'Smooth KVO Type', options=['Arnaud Legoux - ALMA', 'Exponential - EMA', 'Double Exponential - DEMA', 'Triple Exponential - EMA', 'Fractal Adaptive - FRAMA', 'Kaufman Adaptive - KAMA', 'Hull - HMA', 'Jurik - JMA', 'Laguerre Filter', 'Least Squares - LSMA', 'McGinley Dynamic', 'Modular Filter', 'Rex Dog - RDMA', 'Simple - SMA', 'Smoothed - SMMA or RMA', 'Tillson T3', 'Triangular - TMA', 'Volatility-Adjusted - VAMA', 'Volume-Weighted - VWMA', 'Weighted - WMA', 'Zero-Lag - ZLMA'], group=g_KVO_smooth)
+int sig_lkbk = input.int(13, 'Lookback', group=g_KVO_smooth)
+float alma_offset = input.float(0.85, 'ALMA Offset', step=0.05, inline='alma', group=g_KVO_smooth)
+float alma_sigma = input.float(6, 'ALMA Sigma', step=0.5, inline='alma', group=g_KVO_smooth)
+int fc = input.int(34, 'FRAMA Fast Period', minval=1, inline='frama', group=g_KVO_smooth)
+int sc = input.int(89, 'FRAMA Slow Period', minval=1, inline='frama', group=g_KVO_smooth)
+float kfl = input.float(0.7, 'KAMA Fast End', minval=0.01, step=0.01, inline='kama', group=g_KVO_smooth)
+float ksl = input.float(0.065, 'KAMA Slow End', minval=0.01, step=0.0025, inline='kama', group=g_KVO_smooth)
+int jurik_phase = input.int(1, 'Jurik Phase', minval=-100, maxval=100, inline='jma', group=g_KVO_smooth)
+float jurik_power = input.float(1, 'Jurik Power', minval=0.1, maxval=10, step=0.1, inline='jma', group=g_KVO_smooth)
+float laguerre_alpha = input.float(0.7, 'Laguerre Filter Alpha', minval=0, maxval=1, step=0.025, inline='laguerre', group=g_KVO_smooth)
+int lsma_offset = input.int(9, 'Least Squares Offset', inline='lsma', group=g_KVO_smooth)
+float mf_beta = input.float(0.5, 'Modular Filter Beta', maxval=1, step=0.05, inline='mf', group=g_KVO_smooth)
+bool mf_feedback = input.bool(true, 'Modular Filter Feedback', inline='mf', group=g_KVO_smooth)
+float mf_z = input.float(0.2, 'Modular Filter Feedback Weighting', step=0.1, minval=0, maxval=1, inline='mf', group=g_KVO_smooth)
+int vol_lkbk = input.int(21, 'Volatility Adjusted Lookback Period', minval=1, group=g_KVO_smooth)
+string i_sig_color_selection = input.string('Gradient', 'Reference for Signal Colors', options=['Centerline', 'Secondary Signal Line', 'Gradient'], group=g_KVO_smooth)
+color bull_sig_color = input.color(color.new(#ff9800, 25), title='Bullish', inline='sig_c', group=g_KVO_smooth)
+color neut_sig_color = input.color(color.new(#b8b8b8, 25), title='Neutral', inline='sig_c', group=g_KVO_smooth)
+color bear_sig_color = input.color(color.new(#2962ff, 25), title='Bearish', inline='sig_c', group=g_KVO_smooth)
+
+string g_KVO_smooth2 = 'Secondary Smooth KVO'
+string sig2_type = input.string('Exponential - EMA', 'Smooth KVO Type', options=['Arnaud Legoux - ALMA', 'Exponential - EMA', 'Double Exponential - DEMA', 'Triple Exponential - EMA', 'Fractal Adaptive - FRAMA', 'Kaufman Adaptive - KAMA', 'Hull - HMA', 'Jurik - JMA', 'Laguerre Filter', 'Least Squares - LSMA', 'McGinley Dynamic', 'Modular Filter', 'Rex Dog - RDMA', 'Simple - SMA', 'Smoothed - SMMA or RMA', 'Tillson T3', 'Triangular - TMA', 'Volatility-Adjusted - VAMA', 'Volume-Weighted - VWMA', 'Weighted - WMA', 'Zero-Lag - ZLMA'], group=g_KVO_smooth2)
+int sig2_lkbk = input.int(13, 'Lookback', group=g_KVO_smooth2)
+float alma_offset2 = input.float(0.85, 'ALMA Offset', step=0.05, inline='alma', group=g_KVO_smooth2)
+float alma_sigma2 = input.float(6, 'ALMA Sigma', step=0.5, inline='alma', group=g_KVO_smooth2)
+int fc2 = input.int(34, 'FRAMA Fast Period', minval=1, inline='frama', group=g_KVO_smooth2)
+int sc2 = input.int(89, 'FRAMA Slow Period', minval=1, inline='frama', group=g_KVO_smooth2)
+float kfl2 = input.float(0.7, 'KAMA Fast End', minval=0.01, step=0.01, inline='kama', group=g_KVO_smooth2)
+float ksl2 = input.float(0.065, 'KAMA Slow End', minval=0.01, step=0.0025, inline='kama', group=g_KVO_smooth2)
+int jurik_phase2 = input.int(1, 'Jurik Phase', minval=-100, maxval=100, inline='jma', group=g_KVO_smooth2)
+float jurik_power2 = input.float(1, 'Jurik Power', minval=0.1, maxval=10, step=0.1, inline='jma', group=g_KVO_smooth2)
+float laguerre_alpha2 = input.float(0.7, 'Laguerre Filter Alpha', minval=0, maxval=1, step=0.025, inline='laguerre', group=g_KVO_smooth2)
+int lsma_offset2 = input.int(9, 'Least Squares Offset', inline='lsma', group=g_KVO_smooth2)
+float mf_beta2 = input.float(0.5, 'Modular Filter Beta', maxval=1, step=0.05, inline='mf', group=g_KVO_smooth2)
+bool mf_feedback2 = input.bool(true, 'Modular Filter Feedback', inline='mf', group=g_KVO_smooth2)
+float mf_z2 = input.float(0.2, 'Modular Filter Feedback Weighting', step=0.1, minval=0, maxval=1, inline='mf', group=g_KVO_smooth2)
+int vol_lkbk2 = input.int(21, 'Volatility Adjusted Lookback Period', minval=1, group=g_KVO_smooth2)
+color bull_sig2_color = input.color(color.new(#ffbb00, 80), title='Bullish', inline='sig_c', group=g_KVO_smooth2)
+color bear_sig2_color = input.color(color.new(#008cff, 80), title='Bearish', inline='sig_c', group=g_KVO_smooth2)
+
+string g_donchain = 'Donchian Channels'
+int dc_lkbk = input.int(50, 'Lookback', group=g_donchain)
+float dc_band_width = input.float(6, 'Band Thickness', step=0.5, group=g_donchain)
+color dc_pos_fill = input.color(color.new(#787b86, 75), 'Upper Band', inline='dcc', group=g_donchain)
+color dc_neg_fill = input.color(color.new(#787b86, 75), 'Lower Band', inline='dcc', group=g_donchain)
+color c_basis = input.color(color.new(#ffffff, 40), 'Basis Color', inline='basis color', group=g_donchain)
+
+string g_KVO_div = 'KVO Divergences'
+string i_kvo_div_select = input.string('KVO', 'Source Select for Divergences', options=['KVO', 'Signal'], group=g_KVO_div)
+int kvo_div_lkbk_right = input.int(5, 'Pivot Lookback Right', group=g_KVO_div)
+int kvo_div_lkbk_left = input.int(5, 'Pivot Lookback Left', group=g_KVO_div)
+int kvo_div_max_range = input.int(60, 'Max of Lookback Range', group=g_KVO_div)
+int kvo_div_min_range = input.int(5, 'Min of Lookback Range', group=g_KVO_div)
+string kvo_div_location = input.string('top/bottom', 'Plot Divergences Location', options=['top/bottom', 'on wave line'], group=g_KVO_div)
+int kvo_div_wid = input.int(2, 'Divergences Line With', group=g_KVO_div)
+bool kvo_div_bull = input.bool(true, 'Bull', group=g_KVO_div)
+bool kvo_div_hdn_bull = input.bool(true, 'Hidden Bull', group=g_KVO_div)
+bool kvo_div_bear = input.bool(true, 'Bear', group=g_KVO_div)
+bool kvo_div_hdn_bear = input.bool(true, 'Hidden Bear', group=g_KVO_div)
+color c_kvo_bull = input.color(color.new(#21f380, 40), 'KVO Bull', inline='bull div', group=g_KVO_div)
+color c_kvo_hdn_bull = input.color(color.new(#3bffff, 40), 'KVO Hidden Bull', inline='bull div', group=g_KVO_div)
+color c_kvo_bear = input.color(color.new(color.red, 40), 'KVO Bear', inline='bear div', group=g_KVO_div)
+color c_kvo_hdn_bear = input.color(color.new(#fba440, 40), 'KVO Hidden Bear', inline='bear div', group=g_KVO_div)
+color c_kvo_text = input.color(color.new(color.white, 40), 'KVO Text', inline='text', group=g_KVO_div)
+
+
+// -----------------------------------------------------------------------------------------------
+//   Calculations
+// -----------------------------------------------------------------------------------------------
+
+var cumVol = 0.
+cumVol += nz(volume)
+sv = ta.change(kvo_src) >= 0 ? volume : -volume
+kvo = (ta.ema(sv, kvo_lkbk_1) - ta.ema(sv, kvo_lkbk_2))/kvo_graph_ratio
+
+// LIST OF MOVING AVERAGES 1
+ma(type, kvo_src, lkbk) =>
+    result = 0.0
+    if type == 'Arnaud Legoux - ALMA'
+        result := mymas.alma(kvo_src, lkbk, alma_offset, alma_sigma)
+        
+    if type == 'Exponential - EMA'
+        result := mymas.ema(kvo_src, lkbk)
+        
+    if type == 'Double Exponential - DEMA'
+        result := mymas.dema(kvo_src, lkbk)
+        
+    if type == 'Triple Exponential - TEMA'
+        result := mymas.tema(kvo_src, lkbk)
+        
+    if type == 'Fractal Adaptive - FRAMA'
+        result := mymas.frama(kvo_src, lkbk, fc, sc)
+    
+    if type == 'Kaufman Adaptive - KAMA'
+        result := mymas.kama(kvo_src, lkbk, kfl, ksl)
+
+    if type == 'Hull - HMA'
+        result := mymas.hma(kvo_src, lkbk)
+        
+    if type == 'Jurik - JMA'
+        result := mymas.jma(kvo_src, lkbk, jurik_phase, jurik_power)
+
+    if type == 'Laguerre Filter'
+        result := mymas.laguerre(kvo_src, laguerre_alpha) 
+        
+    if type == 'Least Squares - LSMA'
+        result := mymas.lsma(kvo_src, lkbk, lsma_offset)
+    
+    if type == "McGinley Dynamic"
+        result := mymas.mcginley(kvo_src, lkbk)
+        
+    if type == 'Modular Filter'
+        result := mymas.mf(kvo_src, lkbk, mf_feedback, mf_beta, mf_z)
+        
+    if type == 'Rex Dog - RDMA'
+        result := mymas.rdma(kvo_src)
+        
+    if type == 'Simple - SMA'
+        result := mymas.sma(kvo_src, lkbk)
+
+    if type == 'Smoothed - SMMA or RMA'
+        result := mymas.smma(kvo_src, lkbk)
+        
+    if type == 'Tillson T3'  // credits to Harry Potter for the calculations
+        result := mymas.t3(kvo_src, lkbk)
+        
+    if type == 'Triangular - TMA'
+        result := mymas.tma(kvo_src, lkbk)
+        
+    if type == 'Volatility-Adjusted - VAMA'
+        result := mymas.vama(kvo_src, lkbk, vol_lkbk)
+
+    if type == 'Volume-Weighted - VWMA'
+        result := mymas.vwma(kvo_src, lkbk)
+
+    if type == 'Weighted - WMA'
+        result := mymas.wma(kvo_src, lkbk)
+        
+    if type == 'Zero-Lag - ZLMA'
+        result := mymas.zlma(kvo_src, lkbk)
+        
+    result
+
+sig = ma(sig_ma, kvo, sig_lkbk)
+
+// LIST OF MOVING AVERAGES 2
+ma2(type, kvo_src, lkbk) =>
+    result = 0.0
+    if type == 'Arnaud Legoux - ALMA'
+        result := mymas.alma(kvo_src, lkbk, alma_offset2, alma_sigma2)
+        
+    if type == 'Exponential - EMA'
+        result := mymas.ema(kvo_src, lkbk)
+        
+    if type == 'Double Exponential - DEMA'
+        result := mymas.dema(kvo_src, lkbk)
+        
+    if type == 'Triple Exponential - TEMA'
+        result := mymas.tema(kvo_src, lkbk)
+        
+    if type == 'Fractal Adaptive - FRAMA'
+        result := mymas.frama(kvo_src, lkbk, fc2, sc2)
+    
+    if type == 'Kaufman Adaptive - KAMA'
+        result := mymas.kama(kvo_src, lkbk, kfl2, ksl2)
+
+    if type == 'Hull - HMA'
+        result := mymas.hma(kvo_src, lkbk)
+        
+    if type == 'Jurik - JMA'
+        result := mymas.jma(kvo_src, lkbk, jurik_phase2, jurik_power2)
+
+    if type == 'Laguerre Filter'
+        result := mymas.laguerre(kvo_src, laguerre_alpha2) 
+        
+    if type == 'Least Squares - LSMA'
+        result := mymas.lsma(kvo_src, lkbk, lsma_offset2)
+    
+    if type == "McGinley Dynamic"
+        result := mymas.mcginley(kvo_src, lkbk)
+        
+    if type == 'Modular Filter'
+        result := mymas.mf(kvo_src, lkbk, mf_feedback2, mf_beta2, mf_z2)
+        
+    if type == 'Rex Dog - RDMA'
+        result := mymas.rdma(kvo_src)
+        
+    if type == 'Simple - SMA'
+        result := mymas.sma(kvo_src, lkbk)
+
+    if type == 'Smoothed - SMMA or RMA'
+        result := mymas.smma(kvo_src, lkbk)
+        
+    if type == 'Tillson T3'  // credits to Harry Potter for the calculations
+        result := mymas.t3(kvo_src, lkbk)
+        
+    if type == 'Triangular - TMA'
+        result := mymas.tma(kvo_src, lkbk)
+        
+    if type == 'Volatility-Adjusted - VAMA'
+        result := mymas.vama(kvo_src, lkbk, vol_lkbk2)
+
+    if type == 'Volume-Weighted - VWMA'
+        result := mymas.vwma(kvo_src, lkbk)
+
+    if type == 'Weighted - WMA'
+        result := mymas.wma(kvo_src, lkbk)
+        
+    if type == 'Zero-Lag - ZLMA'
+        result := mymas.zlma(kvo_src, lkbk)
+        
+    result
+
+sig2 = ma2(sig2_type, sig, sig2_lkbk)
+
+// SIGNAL LINE CROSS
+sig_kvo_crossOver = show_sig_kvo_cross and ta.crossover(kvo, sig)
+sig_kvo_crossUnder = show_sig_kvo_cross and ta.crossunder(kvo, sig)
+sig2_kvo_crossOver = show_sig2_kvo_cross and ta.crossover(sig, sig2)
+sig2_kvo_crossUnder = show_sig2_kvo_cross and ta.crossunder(sig, sig2)
+
+// DONCHIAN CHANNELS BANDS
+[basis, upper, lower, inner_upper, inner_lower] = volbands.donchianchannels(kvo, dc_lkbk, dc_band_width)
+
+// KLINGER OSCILLATOR
+kvo_1 = color.from_gradient(kvo, lower, upper, bear_kvo_color, bull_kvo_color)
+kvo_2 = kvo > 0 ? bull_kvo_color : bear_kvo_color
+kvo_3 = kvo > sig and kvo > 0 ? bull_kvo_color : kvo < sig and kvo < 0 ? bear_kvo_color : neut_kvo_color
+kvo_color_selection = i_kvo_color_selection == 'Gradient' ? kvo_1 : i_kvo_color_selection == 'Centerline' ? kvo_2 : i_kvo_color_selection == 'Signal Line' ? kvo_3 : na
+
+// SMOOTHED KVO
+sig_1 = color.from_gradient(sig, inner_lower, inner_upper, bear_sig_color, bull_sig_color)
+sig_2 = sig > sig[1] and sig > 0 ? bull_sig_color : sig < sig[1] and sig < 0 ? bear_sig_color : neut_sig_color
+sig_3 = sig > sig2 and sig > 0 ? bull_sig_color : sig < sig2 and sig < 0 ? bear_sig_color : neut_sig_color
+sig_color_selection = i_sig_color_selection == 'Gradient' ? sig_1 : i_sig_color_selection == 'Centerline' ? sig_2 : i_sig_color_selection == 'Secondary Signal Line' ? sig_3 : na
+
+// SMOOTHED KVO 2
+sig2_color = sig2 > sig2[1] ? bull_sig2_color : bear_sig2_color
+// sig2_color = color.from_gradient(sig2, inner_lower, inner_upper, bull_sig2_color, bear_sig2_color)
+
+// DIVERGENCES
+kvo_div_select = i_kvo_div_select == 'KVO' ? kvo : i_kvo_div_select == 'Signal' ? sig : na
+kvo_pl_found = na(ta.pivotlow(kvo_div_select, kvo_div_lkbk_left, kvo_div_lkbk_right)) ? false : true
+kvo_ph_found = na(ta.pivothigh(kvo_div_select, kvo_div_lkbk_left, kvo_div_lkbk_right)) ? false : true
+
+_inRange_kvo(cond) =>
+    bars = ta.barssince(cond == true)
+    kvo_div_min_range <= bars and bars <= kvo_div_max_range
+
+// -- Bullish
+bool plot_kvo_bull = kvo_div_bull and show_kvo_div
+kvo_osc_hl = kvo_div_select[kvo_div_lkbk_right] > ta.valuewhen(kvo_pl_found, kvo_div_select[kvo_div_lkbk_right], 1) and _inRange(kvo_pl_found[1], kvo_div_min_range, kvo_div_max_range)
+kvo_price_ll = low[kvo_div_lkbk_right] < ta.valuewhen(kvo_pl_found, low[kvo_div_lkbk_right], 1)
+kvo_bull_cond = plot_kvo_bull and kvo_price_ll and kvo_osc_hl and kvo_pl_found
+// -- Hidden Bullish
+bool plot_kvo_hdn_bull = kvo_div_hdn_bull and show_kvo_div
+kvo_osc_ll = kvo_div_select[kvo_div_lkbk_right] < ta.valuewhen(kvo_pl_found, kvo_div_select[kvo_div_lkbk_right], 1) and _inRange(kvo_pl_found[1], kvo_div_min_range, kvo_div_max_range)
+kvo_price_hl = low[kvo_div_lkbk_right] > ta.valuewhen(kvo_pl_found, low[kvo_div_lkbk_right], 1)
+kvo_hdn_bull_cond = plot_kvo_hdn_bull and kvo_price_hl and kvo_osc_ll and kvo_pl_found
+// -- Bearish
+bool plot_kvo_bear = kvo_div_bear and show_kvo_div
+kvo_osc_lh = kvo_div_select[kvo_div_lkbk_right] < ta.valuewhen(kvo_ph_found, kvo_div_select[kvo_div_lkbk_right], 1) and _inRange(kvo_ph_found[1], kvo_div_min_range, kvo_div_max_range)
+kvo_price_hh = high[kvo_div_lkbk_right] > ta.valuewhen(kvo_ph_found, high[kvo_div_lkbk_right], 1)
+kvo_bear_cond = plot_kvo_bear and kvo_price_hh and kvo_osc_lh and kvo_ph_found
+// -- Hidden Bearish
+bool plot_kvo_hdn_bear = kvo_div_hdn_bear and show_kvo_div
+kvo_osc_hh = kvo_div_select[kvo_div_lkbk_right] > ta.valuewhen(kvo_ph_found, kvo_div_select[kvo_div_lkbk_right], 1) and _inRange(kvo_ph_found[1], kvo_div_min_range, kvo_div_max_range)
+kvo_price_lh = high[kvo_div_lkbk_right] < ta.valuewhen(kvo_ph_found, high[kvo_div_lkbk_right], 1)
+kvo_hdn_bear_cond = plot_kvo_hdn_bear and kvo_price_lh and kvo_osc_hh and kvo_ph_found
+
+// -----------------------------------------------------------------------------------------------
+//   Drawing
+// -----------------------------------------------------------------------------------------------
+
+// PLOTS, FILLS, BAR COLORS
+plot(show_kvo_smooth2 ? sig2 : na, color=sig2_color, style=plot.style_area, title='Secondary Signal Line')
+plot(show_kvo_smooth ? sig : na, color=sig_color_selection, style=plot.style_line, title='Primary Signal Line')
+plot(show_kvo ? kvo : na, color=kvo_color_selection, title='KVO')
+
+upper_plot = plot(show_donchain ? upper : na, color=color.new(#ef5350, 0), title='Upper DC', display=display.none)
+inner_upper_plot = plot(show_donchain ? inner_upper : na, color=color.new(#ef5350, 0), title='Inner Upper DC', display=display.none)
+lower_plot = plot(show_donchain ? lower : na, color=color.new(#2196f3, 0), title='Lower DC', display=display.none)
+inner_lower_plot = plot(show_donchain ? inner_lower : na, color=color.new(#2196f3, 0), title='Inner Lower DC', display=display.none)
+fill(upper_plot, inner_upper_plot, color=dc_neg_fill, title='Upper DC Bands Fill')
+fill(lower_plot, inner_lower_plot, color=dc_pos_fill, title='Lower DC Bands Fill')
+plot(show_donchain_basis ? basis : na, color=c_basis, title='Basis')
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════ //
+//# * ══════════════════════════════════════════════════════════════════════════════════════════════
+//# *
+//# * Global
+//# *
+//# * ══════════════════════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════════════════════════ //
+
+// -----------------------------------------------------------------------------------------------
+//   Drawing
+// -----------------------------------------------------------------------------------------------
+
+bool wto_div_on_wt = wto_div_location == 'on wave line'
+bool kvo_div_on_wt = kvo_div_location == 'on wave line'
+plot(wto_pl_found and wto_div_on_wt ? wto_div_select[wto_div_lkbk_right] : wto_pl_found ? -80 : na, offset=-wto_div_lkbk_right, title='WTO Bull', linewidth=wto_div_wid, color=wto_bull_cond ? c_wto_bull : wto_hdn_bull_cond ? c_wto_hdn_bull : na)
+plot(wto_ph_found and wto_div_on_wt ? wto_div_select[wto_div_lkbk_right] : wto_ph_found ? 80 : na, offset=-wto_div_lkbk_right, title='WTO Bear', linewidth=wto_div_wid, color=wto_bear_cond ? c_wto_bear : wto_hdn_bear_cond ? c_wto_hdn_bear : na)
+plot(kvo_pl_found and kvo_div_on_wt ? kvo_div_select[kvo_div_lkbk_right] : kvo_pl_found ? -100 : na, offset=-kvo_div_lkbk_right, title='KVO Bull', linewidth=kvo_div_wid, color=kvo_bull_cond ? c_kvo_bull : kvo_hdn_bull_cond ? c_kvo_hdn_bull : na)
+plot(kvo_ph_found and kvo_div_on_wt ? kvo_div_select[kvo_div_lkbk_right] : kvo_ph_found ? 100 : na, offset=-kvo_div_lkbk_right, title='KVO Bull', linewidth=kvo_div_wid, color=kvo_bear_cond ? c_kvo_bear : kvo_hdn_bear_cond ? c_kvo_hdn_bear : na)
+
+bool sig_cross_onWT = sig_wto_cross_location != 'top/bottom'
+plotshape(sig_wto_crossOver and sig_cross_onWT ? wt_1 : sig_wto_crossOver ? 80 : na, title='Bullish Signal Line Cross', style=shape.circle, color=color.new(#00ff62, 0), location=location.absolute)
+plotshape(sig_wto_crossUnder and sig_cross_onWT ? wt_1 : sig_wto_crossUnder ? -80 : na, title='Bearish Signal Line Cross', style=shape.circle, color=color.new(#ff3a3a, 0), location=location.absolute)
+
+bool sig_cross_onKVO = sig_kvo_cross_location != 'top/bottom'
+plotshape(sig_kvo_crossOver and sig_cross_onKVO ? kvo : sig_kvo_crossOver ? 100 : na, style=shape.circle, location=location.absolute, color=c_x1_up, title='KVO + Signal Line Cross Up')
+plotshape(sig_kvo_crossUnder and sig_cross_onKVO ? kvo : sig_kvo_crossUnder ? -100 : na, style=shape.circle, location=location.absolute, color=c_x1_down, title='KVO + Signal Line Cross Down')
+plotshape(sig2_kvo_crossOver and sig_cross_onKVO ? sig2 : sig2_kvo_crossOver ? 100 : na, style=shape.circle, location=location.absolute, color=c_x2_up, title='Smoothed KVO + Secondary Signal Line Cross Up')
+plotshape(sig2_kvo_crossUnder and sig_cross_onKVO ? sig2 : sig2_kvo_crossUnder ? -100 : na, style=shape.circle, location=location.absolute, color=c_x2_down, title='Smoothed KVO + Secondary Signal Line Cross Down')
+
+
+// -----------------------------------------------------------------------------------------------
+//   Transforms
+// -----------------------------------------------------------------------------------------------
+
+bc_wto_1 = color.from_gradient(wt_1, -60, 60, bc_wto_1_down, bc_wto_1_up)
+bc_wto_2 = wt_1 > 0 ? bc_wto_1_up : bc_wto_1_down
+bc_wto_3 = high_extreme ? bc_wto_1_up : low_extreme ? bc_wto_1_down : bc_neut
+bc_wto_4 = color.from_gradient(wt_2, -60, 60, bc_wto_2_down, bc_wto_2_up)
+bc_wto_5 = wt_2 > 0 ? bc_wto_2_up : bc_wto_2_down
+
+bc_kvo_1 = color.from_gradient(kvo, lower, upper, bc_kvo_down, bc_kvo_up)
+bc_kvo_2 = kvo > 0 ? bc_kvo_up : bc_kvo_down
+bc_kvo_3 = kvo > sig and kvo > 0 ? bc_kvo_up : kvo < sig and kvo < 0 ? bc_kvo_down : bc_neut
+bc_kvo_4 = color.from_gradient(sig, inner_lower, inner_upper, bc_sig_down, bc_sig_up)
+bc_kvo_5 = sig > sig[1] and sig > 0 ? bc_sig_up : sig < sig[1] and sig < 0 ? bc_sig_down : bc_neut
+bc_kvo_6 = sig > sig2 and sig > 0 ? bc_sig_up : sig < sig2 and sig < 0 ? bc_sig_down : bc_neut
+
+bc_selection = i_bc_selection == 'WT 1 Gradient' ? bc_wto_1 : i_bc_selection == 'WT 1 Centerline' ? bc_wto_2 : i_bc_selection == 'WT 1 Extremes' ? bc_wto_3 : i_bc_selection == 'WT 2 Gradient' ? bc_wto_4 : i_bc_selection == 'WT 2 Centerline' ? bc_wto_5 : i_bc_selection == 'KVO | Gradient' ? bc_kvo_1 : i_bc_selection == 'KVO | Centerline' ? bc_kvo_2 : i_bc_selection == 'KVO | Signal Line' ? bc_kvo_3 : i_bc_selection == 'Smoothed KVO | Gradient' ? bc_kvo_4 : i_bc_selection == 'Smoothed KVO | Centerline' ? bc_kvo_5 : i_bc_selection == 'Smoothed KVO | Secondary Signal Line' ? bc_kvo_6 : na
+barcolor(bar_color ? bc_selection : na, title='Bar Colors')
+
+
+// -----------------------------------------------------------------------------------------------
+//   Alerts
+// -----------------------------------------------------------------------------------------------
+
+// alertcondition(ta.crossunder(wt_1, -80), title='Primary WTO Cross Below -80', message='Primary WTO has crossed -80.')
+// alertcondition(ta.crossunder(wt_1, -60), title='Primary WTO Cross into Oversold Zone', message='Primary WTO has crossed into oversold zone.')
+// alertcondition(ta.crossover(wt_1, 80), title='Primary WTO Cross Above 80', message='Primary WTO has crossed 80.')
+// alertcondition(ta.crossover(wt_1, 60), title='Primary WTO Cross into Overbought Zone', message='Primary WTO has crossed into overbought zone.')
+// alertcondition(ta.cross(wt_1, wt_2), title='Primary WTO Crossing Secondary WTO', message='Primary WTO has crossed Secondary WTO.')
+// alertcondition(ta.cross(wt_1, 0), title='Primary WTO Centerline Cross', message='Primary WTO has crossed the centerline.')
+// alertcondition(ta.cross(wt_2, 0), title='Secondary WTO Centerline Cross', message='Secondary WTO has crossed the centerline.')
+// alertcondition(ta.cross(wt_1, wt_1_ma), title='Primary WTO Crossing Moving Average', message='Primary WTO has crossed its Moving Average')
+// alertcondition(wto_bull_cond, title='Bull Div', message='Wavetrend Oscillator bull div')
+// alertcondition(wto_hdn_bull_cond, title='Hidden Bull Div', message='Wavetrend Oscillator hidden bull div')
+// alertcondition(wto_bear_cond, title='Bear Div', message='Wavetrend Oscillator bear div')
+// alertcondition(wto_hdn_bear_cond, title='Hidden Bear Div', message='Wavetrend Oscillator hidden bear div')
+
+// alertcondition(ta.cross(kvo, inner_upper), title='Klinger Oscillator Crossing into Upper Donchian Channel', message='The Klinger Oscillator has crossed into upper Donchian Channel.')
+// alertcondition(ta.cross(kvo, inner_lower), title='Klinger Oscillator Crossing into Lower Donchian Channel', message='The Klinger Oscillator has crossed into lower Donchian Channel.')
+// alertcondition(ta.cross(kvo, sig), title='Klinger Oscillator Crossing Signal Line', message='The Klinger Oscillator has crossed the signal line.')
+// alertcondition(ta.cross(kvo, 0), title='Klinger Oscillator Crossing Centerline', message='The Klinger Oscillator has crossed the centerline.')
+// alertcondition(ta.cross(sig, 0), title='Smoothed Klinger Oscillator Crossing Centerline', message='The smoothed Klinger Oscillator has crossed the centerline.')
+// alertcondition(ta.cross(sig, sig2), title='Smoothed Klinger Oscillator Crossing Signal Line', message='The smoothed Klinger Oscillator has crossed the signal line.')
+// alertcondition(kvo_bull_cond, title='Bull Div', message='+ Klinger Oscillator bull div')
+// alertcondition(kvo_hdn_bull_cond, title='Hidden Bull Div', message='+ Klinger Oscillator hidden bull div')
+// alertcondition(kvo_bear_cond, title='Bear Div', message='+ Klinger Oscillator bear div')
+// alertcondition(kvo_hdn_bear_cond, title='Hidden Bear Div', message='+ Klinger Oscillator hidden bear div')

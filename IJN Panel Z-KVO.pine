@@ -1,0 +1,413 @@
+//@version=5
+indicator('IJN Panel Z', 'Pn-Z KVO', format=format.volume, timeframe='', timeframe_gaps=true)
+
+
+// ------------------------------------------------
+//                     Constants
+// ------------------------------------------------
+
+color CLEAR = color.rgb(0,0,0,100)
+
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════ //
+//# * ══════════════════════════════════════════════════════════════════════════════════════════════
+//# *
+//# * Module : Klinger Volume Oscillator (KVO)
+//# *
+//# * ══════════════════════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════════════════════════ //
+
+// Assembled by @ClassicScott
+
+// A version of Stephen J. Klinger's, Klinger Oscillator (sometimes called Klinger Volume Oscillator). I've changed virtually nothing about the
+// indicator itself, but added some lookback inputs for the EMAs the oscillator is derived from (traditionally 34 and 55), and added a few other
+// things, as is my wont.
+
+// But what is the Klinger Oscillator? Essentially, the calculation looks at the change in close of the current period vs the previous, and adds
+// volume if the close is greater, and subtracts volume if it is less. It then takes an EMA of two different lookback periods of that calculation
+// and subtracts one from the other. That's your oscillator. A signal line is slapped on top that a trader can use, in combination with the zero
+// line, for taking trades. Investopedia has a good article on it, so if you're looking for more specifics, check there.
+
+// What I've done is add a selection of different moving averages that you may choose for the signal line. Usually it's a 13 period EMA, and that
+// comes default. As an update (July 08, 2023), I've added a secondary signal line. The Klinger is a choppy oscillator, so by removing it from
+// the chart and replacing it with a smoothed version (the primary signal line) you will get far fewer false signals either by it crossing the
+// centerline or by it crossing the (secondary) signal line.
+
+// Of course there are all the usual additions of mine with the various ways of coloring the indicator and bars, adjustable Donchian Channels
+// Bands, and alerts.
+
+import ClassicScott/MyMovingAveragesLibrary/3 as mymas
+import ClassicScott/MyVolatilityBands/3 as volbands
+
+// -----------------------------------------------------------------------------------------------
+//   Define User Input Variables
+// -----------------------------------------------------------------------------------------------
+
+string g_MainOpt = 'Main Options'
+bool show_kvo = input.bool(true, 'Show Klinger Oscillator', group=g_MainOpt)
+bool show_kvo_smooth = input.bool(true, 'Show Primary Smoothed KVO', group=g_MainOpt)
+bool show_kvo_smooth2 = input.bool(true, 'Show Secondary Smoothed KVO', group=g_MainOpt)
+bool show_donchain = input.bool(true, 'Show Donchain Channel', group=g_MainOpt)
+bool show_kvo_div = input.bool(false, title='Show KVO Divergences', group=g_MainOpt)
+bool show_sig_kvo_cross = input.bool(true, 'Show Signal Primary Line Cross', group=g_MainOpt)
+bool show_sig2_kvo_cross = input.bool(false, 'Show Signal Secondary Line Cross', group=g_MainOpt)
+
+string g_KVO = 'Klinger Volume Oscillator (KVO)'
+series float src = input(close, 'Source for KVO', group=g_KVO)
+float kvo_graph_ratio = input.float(4.5, 'KVO Graph Scale Ration', tooltip='default is 1:4.5 (kvo_scale:graph_scale)', group=g_KVO)
+int lkbk_1 = input.int(34, title='Lookback for EMA 1', minval=1, group=g_KVO)
+int lkbk_2 = input.int(55, title='Lookback for EMA 2', minval=1, group=g_KVO)
+string i_kvo_color_selection = input.string('Gradient', 'Reference for KVO Colors', options=['Centerline', 'Signal Line', 'Gradient'], group=g_KVO)
+color bull_kvo_color = input.color(color.new(#ff9800, 0), 'KVO Bullish', inline='kvo_c', group=g_KVO)
+color neut_kvo_color = input.color(color.new(#787b86, 0), 'KVO Neutral', inline='kvo_c', group=g_KVO)
+color bear_kvo_color = input.color(color.new(#2962ff, 0), 'KVO Bearish', inline='kvo_c', group=g_KVO)
+string sig_kvo_cross_location = input.string('on wavetrend', 'Signal Line Cross Location', options=['top/bottom', 'on wavetrend'], group=g_KVO)
+color c_x_up = input.color(color.new(#ff9800, 10), title='Bullish Line Cross', inline='x1', group=g_KVO)
+color c_x_down = input.color(color.new(#2962ff, 10), title='Bearish Line Cross', inline='x1', group=g_KVO)
+
+string g_KVO_smooth = 'Primary Smooth KVO'
+string sig_ma = input.string('Exponential - EMA', 'Smooth KVO Type', options=['Arnaud Legoux - ALMA', 'Exponential - EMA', 'Double Exponential - DEMA', 'Triple Exponential - EMA', 'Fractal Adaptive - FRAMA', 'Kaufman Adaptive - KAMA', 'Hull - HMA', 'Jurik - JMA', 'Laguerre Filter', 'Least Squares - LSMA', 'McGinley Dynamic', 'Modular Filter', 'Rex Dog - RDMA', 'Simple - SMA', 'Smoothed - SMMA or RMA', 'Tillson T3', 'Triangular - TMA', 'Volatility-Adjusted - VAMA', 'Volume-Weighted - VWMA', 'Weighted - WMA', 'Zero-Lag - ZLMA'], group=g_KVO_smooth)
+int sig_lkbk = input.int(13, 'Lookback', group=g_KVO_smooth)
+float alma_offset = input.float(0.85, 'ALMA Offset', step=0.05, inline='alma', group=g_KVO_smooth)
+float alma_sigma = input.float(6, 'ALMA Sigma', step=0.5, inline='alma', group=g_KVO_smooth)
+int fc = input.int(34, 'FRAMA Fast Period', minval=1, inline='frama', group=g_KVO_smooth)
+int sc = input.int(89, 'FRAMA Slow Period', minval=1, inline='frama', group=g_KVO_smooth)
+float kfl = input.float(0.7, 'KAMA Fast End', minval=0.01, step=0.01, inline='kama', group=g_KVO_smooth)
+float ksl = input.float(0.065, 'KAMA Slow End', minval=0.01, step=0.0025, inline='kama', group=g_KVO_smooth)
+int jurik_phase = input.int(1, 'Jurik Phase', minval=-100, maxval=100, inline='jma', group=g_KVO_smooth)
+float jurik_power = input.float(1, 'Jurik Power', minval=0.1, maxval=10, step=0.1, inline='jma', group=g_KVO_smooth)
+float laguerre_alpha = input.float(0.7, 'Laguerre Filter Alpha', minval=0, maxval=1, step=0.025, inline='laguerre', group=g_KVO_smooth)
+int lsma_offset = input.int(9, 'Least Squares Offset', inline='lsma', group=g_KVO_smooth)
+float mf_beta = input.float(0.5, 'Modular Filter Beta', maxval=1, step=0.05, inline='mf', group=g_KVO_smooth)
+bool mf_feedback = input.bool(true, 'Modular Filter Feedback', inline='mf', group=g_KVO_smooth)
+float mf_z = input.float(0.2, 'Modular Filter Feedback Weighting', step=0.1, minval=0, maxval=1, inline='mf', group=g_KVO_smooth)
+int vol_lkbk = input.int(21, 'Volatility Adjusted Lookback Period', minval=1, group=g_KVO_smooth)
+string i_sig_color_selection = input.string('Gradient', 'Reference for Signal Colors', options=['Centerline', 'Secondary Signal Line', 'Gradient'], group=g_KVO_smooth)
+color bull_sig_color = input.color(color.new(#00bcd4, 25), title='Bullish', inline='sig_c', group=g_KVO_smooth)
+color neut_sig_color = input.color(color.new(#787b86, 25), title='Neutral', inline='sig_c', group=g_KVO_smooth)
+color bear_sig_color = input.color(color.new(#e91e63, 25), title='Bearish', inline='sig_c', group=g_KVO_smooth)
+
+string g_KVO_smooth2 = 'Secondary Smooth KVO'
+string sig2_type = input.string('Exponential - EMA', 'Smooth KVO Type', options=['Arnaud Legoux - ALMA', 'Exponential - EMA', 'Double Exponential - DEMA', 'Triple Exponential - EMA', 'Fractal Adaptive - FRAMA', 'Kaufman Adaptive - KAMA', 'Hull - HMA', 'Jurik - JMA', 'Laguerre Filter', 'Least Squares - LSMA', 'McGinley Dynamic', 'Modular Filter', 'Rex Dog - RDMA', 'Simple - SMA', 'Smoothed - SMMA or RMA', 'Tillson T3', 'Triangular - TMA', 'Volatility-Adjusted - VAMA', 'Volume-Weighted - VWMA', 'Weighted - WMA', 'Zero-Lag - ZLMA'], group=g_KVO_smooth2)
+int sig2_lkbk = input.int(13, 'Lookback', group=g_KVO_smooth2)
+float alma_offset2 = input.float(0.85, 'ALMA Offset', step=0.05, inline='alma', group=g_KVO_smooth2)
+float alma_sigma2 = input.float(6, 'ALMA Sigma', step=0.5, inline='alma', group=g_KVO_smooth2)
+int fc2 = input.int(34, 'FRAMA Fast Period', minval=1, inline='frama', group=g_KVO_smooth2)
+int sc2 = input.int(89, 'FRAMA Slow Period', minval=1, inline='frama', group=g_KVO_smooth2)
+float kfl2 = input.float(0.7, 'KAMA Fast End', minval=0.01, step=0.01, inline='kama', group=g_KVO_smooth2)
+float ksl2 = input.float(0.065, 'KAMA Slow End', minval=0.01, step=0.0025, inline='kama', group=g_KVO_smooth2)
+int jurik_phase2 = input.int(1, 'Jurik Phase', minval=-100, maxval=100, inline='jma', group=g_KVO_smooth2)
+float jurik_power2 = input.float(1, 'Jurik Power', minval=0.1, maxval=10, step=0.1, inline='jma', group=g_KVO_smooth2)
+float laguerre_alpha2 = input.float(0.7, 'Laguerre Filter Alpha', minval=0, maxval=1, step=0.025, inline='laguerre', group=g_KVO_smooth2)
+int lsma_offset2 = input.int(9, 'Least Squares Offset', inline='lsma', group=g_KVO_smooth2)
+float mf_beta2 = input.float(0.5, 'Modular Filter Beta', maxval=1, step=0.05, inline='mf', group=g_KVO_smooth2)
+bool mf_feedback2 = input.bool(true, 'Modular Filter Feedback', inline='mf', group=g_KVO_smooth2)
+float mf_z2 = input.float(0.2, 'Modular Filter Feedback Weighting', step=0.1, minval=0, maxval=1, inline='mf', group=g_KVO_smooth2)
+int vol_lkbk2 = input.int(21, 'Volatility Adjusted Lookback Period', minval=1, group=g_KVO_smooth2)
+color bull_sig2_color = input.color(color.new(#00bcd4, 75), title='Bullish', inline='sig_c', group=g_KVO_smooth2)
+color bear_sig2_color = input.color(color.new(#e91e63, 75), title='Bearish', inline='sig_c', group=g_KVO_smooth2)
+
+string g_donchain = 'Donchian Channels'
+int dc_lkbk = input.int(50, 'Lookback', group=g_donchain)
+float dc_band_width = input.float(10, 'Band Thickness', step=0.5, group=g_donchain)
+color dc_pos_fill = input.color(color.new(#787b86, 75), 'Upper Band', inline='dcc', group=g_donchain)
+color dc_neg_fill = input.color(color.new(#787b86, 75), 'Lower Band', inline='dcc', group=g_donchain)
+bool i_basis = input.bool(false, 'Display Basis', group=g_donchain)
+color c_basis = input.color(color.new(#787b86, 25), 'Basis Color', inline='basis color', group=g_donchain)
+
+string g_KVO_div = 'KVO Divergences'
+string i_div_select = input.string('KVO', 'Source Select for Divergences', options=['KVO', 'Signal'], group=g_KVO_div)
+int lkbk_right = input.int(5, 'Pivot Lookback Right', group=g_KVO_div)
+int lkbk_left = input.int(5, 'Pivot Lookback Left', group=g_KVO_div)
+int max_range = input.int(60, 'Max of Lookback Range', group=g_KVO_div)
+int min_range = input.int(5, 'Min of Lookback Range', group=g_KVO_div)
+bool kvo_div_bull = input.bool(true, 'Bull', group=g_KVO_div)
+bool kvo_div_hdn_bull = input.bool(true, 'Hidden Bull', group=g_KVO_div)
+bool kvo_div_bear = input.bool(true, 'Bear', group=g_KVO_div)
+bool kvo_div_hdn_bear = input.bool(true, 'Hidden Bear', group=g_KVO_div)
+color c_kvo_bull = input.color(color.new(color.blue, 0), 'KVO Bull', inline='bull div', group=g_KVO_div)
+color c_kvo_hdn_bull = input.color(color.new(color.yellow, 0), 'KVO Hidden Bull', inline='bull div', group=g_KVO_div)
+color c_kvo_bear = input.color(color.new(color.red, 0), 'KVO Bear', inline='bear div', group=g_KVO_div)
+color c_kvo_hdn_bear = input.color(color.new(color.fuchsia, 0), 'KVO Hidden Bear', inline='bear div', group=g_KVO_div)
+color c_text = input.color(color.new(color.white, 0), 'KVO Text', inline='text', group=g_KVO_div)
+
+string g_barColor = 'Bar Colors'
+bool bar_color = input.bool(defval=true, title='', group=g_barColor)
+string i_bc_selection = input.string('KVO | Gradient', 'Reference for Bar Colors', options=['KVO | Centerline', 'KVO | Signal Line', 'KVO | Gradient', 'Smoothed KVO | Centerline', 'Smoothed KVO | Secondary Signal Line', 'Smoothed KVO | Gradient'], group=g_barColor)
+color bc_kvo_up = input.color(color.new(#ff9800, 0), 'KVO Bullish', inline='bc_kvo', group=g_barColor)
+color bc_kvo_down = input.color(color.new(#2962ff, 0), 'KVO Bearish', inline='bc_kvo', group=g_barColor)
+color bc_sig_up = input.color(color.new(#00bcd4, 0), 'KVO Signal Bullish', inline='bc_sig', group=g_barColor)
+color bc_sig_down = input.color(color.new(#e91e63, 0), 'KVO Signal Bearish', inline='bc_sig', group=g_barColor)
+color bc_neut = input.color(color.new(#787b86, 0), 'Neutral', inline='bc', group=g_barColor)
+
+
+hline(0, title='Centerline', linestyle=hline.style_dotted, color=color.new(#787b86, 0))
+
+
+// -----------------------------------------------------------------------------------------------
+//   Calculations
+// -----------------------------------------------------------------------------------------------
+
+var cumVol = 0.
+cumVol += nz(volume)
+sv = ta.change(src) >= 0 ? volume : -volume
+kvo = (ta.ema(sv, lkbk_1) - ta.ema(sv, lkbk_2))/kvo_graph_ratio
+
+// LIST OF MOVING AVERAGES 1
+ma(type, src, lkbk) =>
+    result = 0.0
+    if type == 'Arnaud Legoux - ALMA'
+        result := mymas.alma(src, lkbk, alma_offset, alma_sigma)
+        
+    if type == 'Exponential - EMA'
+        result := mymas.ema(src, lkbk)
+        
+    if type == 'Double Exponential - DEMA'
+        result := mymas.dema(src, lkbk)
+        
+    if type == 'Triple Exponential - TEMA'
+        result := mymas.tema(src, lkbk)
+        
+    if type == 'Fractal Adaptive - FRAMA'
+        result := mymas.frama(src, lkbk, fc, sc)
+    
+    if type == 'Kaufman Adaptive - KAMA'
+        result := mymas.kama(src, lkbk, kfl, ksl)
+
+    if type == 'Hull - HMA'
+        result := mymas.hma(src, lkbk)
+        
+    if type == 'Jurik - JMA'
+        result := mymas.jma(src, lkbk, jurik_phase, jurik_power)
+
+    if type == 'Laguerre Filter'
+        result := mymas.laguerre(src, laguerre_alpha) 
+        
+    if type == 'Least Squares - LSMA'
+        result := mymas.lsma(src, lkbk, lsma_offset)
+    
+    if type == "McGinley Dynamic"
+        result := mymas.mcginley(src, lkbk)
+        
+    if type == 'Modular Filter'
+        result := mymas.mf(src, lkbk, mf_feedback, mf_beta, mf_z)
+        
+    if type == 'Rex Dog - RDMA'
+        result := mymas.rdma(src)
+        
+    if type == 'Simple - SMA'
+        result := mymas.sma(src, lkbk)
+
+    if type == 'Smoothed - SMMA or RMA'
+        result := mymas.smma(src, lkbk)
+        
+    if type == 'Tillson T3'  // credits to Harry Potter for the calculations
+        result := mymas.t3(src, lkbk)
+        
+    if type == 'Triangular - TMA'
+        result := mymas.tma(src, lkbk)
+        
+    if type == 'Volatility-Adjusted - VAMA'
+        result := mymas.vama(src, lkbk, vol_lkbk)
+
+    if type == 'Volume-Weighted - VWMA'
+        result := mymas.vwma(src, lkbk)
+
+    if type == 'Weighted - WMA'
+        result := mymas.wma(src, lkbk)
+        
+    if type == 'Zero-Lag - ZLMA'
+        result := mymas.zlma(src, lkbk)
+        
+    result
+
+sig = ma(sig_ma, kvo, sig_lkbk)
+
+// LIST OF MOVING AVERAGES 2
+ma2(type, src, lkbk) =>
+    result = 0.0
+    if type == 'Arnaud Legoux - ALMA'
+        result := mymas.alma(src, lkbk, alma_offset2, alma_sigma2)
+        
+    if type == 'Exponential - EMA'
+        result := mymas.ema(src, lkbk)
+        
+    if type == 'Double Exponential - DEMA'
+        result := mymas.dema(src, lkbk)
+        
+    if type == 'Triple Exponential - TEMA'
+        result := mymas.tema(src, lkbk)
+        
+    if type == 'Fractal Adaptive - FRAMA'
+        result := mymas.frama(src, lkbk, fc2, sc2)
+    
+    if type == 'Kaufman Adaptive - KAMA'
+        result := mymas.kama(src, lkbk, kfl2, ksl2)
+
+    if type == 'Hull - HMA'
+        result := mymas.hma(src, lkbk)
+        
+    if type == 'Jurik - JMA'
+        result := mymas.jma(src, lkbk, jurik_phase2, jurik_power2)
+
+    if type == 'Laguerre Filter'
+        result := mymas.laguerre(src, laguerre_alpha2) 
+        
+    if type == 'Least Squares - LSMA'
+        result := mymas.lsma(src, lkbk, lsma_offset2)
+    
+    if type == "McGinley Dynamic"
+        result := mymas.mcginley(src, lkbk)
+        
+    if type == 'Modular Filter'
+        result := mymas.mf(src, lkbk, mf_feedback2, mf_beta2, mf_z2)
+        
+    if type == 'Rex Dog - RDMA'
+        result := mymas.rdma(src)
+        
+    if type == 'Simple - SMA'
+        result := mymas.sma(src, lkbk)
+
+    if type == 'Smoothed - SMMA or RMA'
+        result := mymas.smma(src, lkbk)
+        
+    if type == 'Tillson T3'  // credits to Harry Potter for the calculations
+        result := mymas.t3(src, lkbk)
+        
+    if type == 'Triangular - TMA'
+        result := mymas.tma(src, lkbk)
+        
+    if type == 'Volatility-Adjusted - VAMA'
+        result := mymas.vama(src, lkbk, vol_lkbk2)
+
+    if type == 'Volume-Weighted - VWMA'
+        result := mymas.vwma(src, lkbk)
+
+    if type == 'Weighted - WMA'
+        result := mymas.wma(src, lkbk)
+        
+    if type == 'Zero-Lag - ZLMA'
+        result := mymas.zlma(src, lkbk)
+        
+    result
+
+sig2 = ma2(sig2_type, sig, sig2_lkbk)
+
+// SIGNAL LINE CROSS
+bool sig_cross_onKVO = sig_kvo_cross_location != 'top/bottom'
+sig_kvo_crossOver = show_sig_kvo_cross and ta.crossover(kvo, sig)
+sig_kvo_crossUnder = show_sig_kvo_cross and ta.crossunder(kvo, sig)
+sig2_kvo_crossOver = show_sig2_kvo_cross and ta.crossover(sig, sig2)
+sig2_kvo_crossUnder = show_sig2_kvo_cross and ta.crossunder(sig, sig2)
+
+// DONCHIAN CHANNELS BANDS
+[basis, upper, lower, inner_upper, inner_lower] = volbands.donchianchannels(kvo, dc_lkbk, dc_band_width)
+
+// KLINGER OSCILLATOR
+kvo_1 = color.from_gradient(kvo, lower, upper, bear_kvo_color, bull_kvo_color)
+kvo_2 = kvo > 0 ? bull_kvo_color : bear_kvo_color
+kvo_3 = kvo > sig and kvo > 0 ? bull_kvo_color : kvo < sig and kvo < 0 ? bear_kvo_color : neut_kvo_color
+kvo_color_selection = i_kvo_color_selection == 'Gradient' ? kvo_1 : i_kvo_color_selection == 'Centerline' ? kvo_2 : i_kvo_color_selection == 'Signal Line' ? kvo_3 : na
+
+// SMOOTHED KVO
+sig_1 = color.from_gradient(sig, inner_lower, inner_upper, bear_sig_color, bull_sig_color)
+sig_2 = sig > sig[1] and sig > 0 ? bull_sig_color : sig < sig[1] and sig < 0 ? bear_sig_color : neut_sig_color
+sig_3 = sig > sig2 and sig > 0 ? bull_sig_color : sig < sig2 and sig < 0 ? bear_sig_color : neut_sig_color
+sig_color_selection = i_sig_color_selection == 'Gradient' ? sig_1 : i_sig_color_selection == 'Centerline' ? sig_2 : i_sig_color_selection == 'Secondary Signal Line' ? sig_3 : na
+
+// SMOOTHED KVO 2
+sig2_color = sig2 > sig2[1] ? bull_sig2_color : bear_sig2_color
+
+// DIVERGENCES
+div_select = i_div_select == 'KVO' ? kvo : i_div_select == 'Signal' ? sig : na
+c_na = color.new(color.white, 100)
+pl_found = na(ta.pivotlow(div_select, lkbk_left, lkbk_right)) ? false : true
+ph_found = na(ta.pivothigh(div_select, lkbk_left, lkbk_right)) ? false : true
+
+_inRange(cond) =>
+    bars = ta.barssince(cond == true)
+    min_range <= bars and bars <= max_range
+
+// -- Bullish
+bool plot_kvo_bull = kvo_div_bull and show_kvo_div
+osc_hl = div_select[lkbk_right] > ta.valuewhen(pl_found, div_select[lkbk_right], 1) and _inRange(pl_found[1])
+price_ll = low[lkbk_right] < ta.valuewhen(pl_found, low[lkbk_right], 1)
+bull_cond = plot_kvo_bull and price_ll and osc_hl and pl_found
+// -- Hidden Bullish
+bool plot_kvo_hdn_bull = kvo_div_hdn_bull and show_kvo_div
+osc_ll = div_select[lkbk_right] < ta.valuewhen(pl_found, div_select[lkbk_right], 1) and _inRange(pl_found[1])
+price_hl = low[lkbk_right] > ta.valuewhen(pl_found, low[lkbk_right], 1)
+hdn_bull_cond = plot_kvo_hdn_bull and price_hl and osc_ll and pl_found
+// -- Bearish
+bool plot_kvo_bear = kvo_div_bear and show_kvo_div
+osc_lh = div_select[lkbk_right] < ta.valuewhen(ph_found, div_select[lkbk_right], 1) and _inRange(ph_found[1])
+price_hh = high[lkbk_right] > ta.valuewhen(ph_found, high[lkbk_right], 1)
+bear_cond = plot_kvo_bear and price_hh and osc_lh and ph_found
+// -- Hidden Bearish
+bool plot_kvo_hdn_bear = kvo_div_hdn_bear and show_kvo_div
+osc_hh = div_select[lkbk_right] > ta.valuewhen(ph_found, div_select[lkbk_right], 1) and _inRange(ph_found[1])
+price_lh = high[lkbk_right] < ta.valuewhen(ph_found, high[lkbk_right], 1)
+hdn_bear_cond = plot_kvo_hdn_bear and price_lh and osc_hh and ph_found
+
+// -----------------------------------------------------------------------------------------------
+//   Drawing
+// -----------------------------------------------------------------------------------------------
+
+// PLOTS, FILLS, BAR COLORS
+plot(show_kvo ? kvo : na, color=kvo_color_selection, title='KVO')
+plot(show_kvo_smooth ? sig : na, color=sig_color_selection, style=plot.style_line, title='Primary Signal Line')
+plot(show_kvo_smooth2 ? sig2 : na, color=sig2_color, style=plot.style_area, title='Secondary Signal Line')
+
+plotshape(sig_kvo_crossOver and sig_cross_onKVO ? kvo : sig_kvo_crossOver ? 99 : na, style=shape.circle, location=location.absolute, color=c_x_up, title='KVO + Signal Line Cross Up')
+plotshape(sig_kvo_crossUnder and sig_cross_onKVO ? kvo : sig_kvo_crossUnder ? -99 : na, style=shape.circle, location=location.absolute, color=c_x_down, title='KVO + Signal Line Cross Down')
+plotshape(sig2_kvo_crossOver and sig_cross_onKVO ? sig2 : sig2_kvo_crossOver ? 99 : na, style=shape.circle, location=location.absolute, color=c_x_up, title='Smoothed KVO + Secondary Signal Line Cross Up')
+plotshape(sig2_kvo_crossUnder and sig_cross_onKVO ? sig2 : sig2_kvo_crossUnder ? -99 : na, style=shape.circle, location=location.absolute, color=c_x_down, title='Smoothed KVO + Secondary Signal Line Cross Down')
+
+upper_plot = plot(show_donchain ? upper : na, color=color.new(#ef5350, 0), title='Upper DC', display=display.none)
+inner_upper_plot = plot(show_donchain ? inner_upper : na, color=color.new(#ef5350, 0), title='Inner Upper DC', display=display.none)
+lower_plot = plot(show_donchain ? lower : na, color=color.new(#2196f3, 0), title='Lower DC', display=display.none)
+inner_lower_plot = plot(show_donchain ? inner_lower : na, color=color.new(#2196f3, 0), title='Inner Lower DC', display=display.none)
+fill(upper_plot, inner_upper_plot, color=dc_neg_fill, title='Upper DC Bands Fill')
+fill(lower_plot, inner_lower_plot, color=dc_pos_fill, title='Lower DC Bands Fill')
+plot(i_basis ? basis : na, color=c_basis, title='Basis')
+
+
+// DIVERGENCES
+plot(pl_found ? div_select[lkbk_right] : na, offset=-lkbk_right, title='Bull', linewidth=1, color=bull_cond ? c_kvo_bull : c_na)
+plotshape(bull_cond ? div_select[lkbk_right] : na, offset=-lkbk_right, title='Bullish Label', text=' Bull ', style=shape.labelup, location=location.absolute, color=c_kvo_bull, textcolor=c_text, display=display.none)
+plot(pl_found ? div_select[lkbk_right] : na, offset=-lkbk_right, title='Hidden Bull', linewidth=1, color=hdn_bull_cond ? c_kvo_hdn_bull : c_na)
+plotshape(hdn_bull_cond ? div_select[lkbk_right] : na, offset=-lkbk_right, title='Hidden Bullish Label', text=' H. Bull ', style=shape.labelup, location=location.absolute, color=c_kvo_bull, textcolor=c_text, display=display.none)
+plot(ph_found ? div_select[lkbk_right] : na, offset=-lkbk_right, title='Bear', linewidth=1, color=bear_cond ? c_kvo_bear : c_na)
+plotshape(bear_cond ? div_select[lkbk_right] : na, offset=-lkbk_right, title='Bearish Label', text=' Bear ', style=shape.labeldown, location=location.absolute, color=c_kvo_bear, textcolor=c_text, display=display.none)
+plot(ph_found ? div_select[lkbk_right] : na, offset=-lkbk_right, title='Hidden Bear', linewidth=1, color=hdn_bear_cond ? c_kvo_hdn_bear : c_na)
+plotshape(hdn_bear_cond ? div_select[lkbk_right] : na, offset=-lkbk_right, title='Hidden Bearish Label', text=' H. Bear ', style=shape.labeldown, location=location.absolute, color=c_kvo_bear, textcolor=c_text, display=display.none)
+
+
+// -----------------------------------------------------------------------------------------------
+//   Transforms
+// -----------------------------------------------------------------------------------------------
+
+bc_1 = color.from_gradient(kvo, lower, upper, bc_kvo_down, bc_kvo_up)
+bc_2 = kvo > 0 ? bc_kvo_up : bc_kvo_down
+bc_3 = kvo > sig and kvo > 0 ? bc_kvo_up : kvo < sig and kvo < 0 ? bc_kvo_down : bc_neut
+bc_4 = color.from_gradient(sig, inner_lower, inner_upper, bc_sig_down, bc_sig_up)
+bc_5 = sig > sig[1] and sig > 0 ? bc_sig_up : sig < sig[1] and sig < 0 ? bc_sig_down : bc_neut
+bc_6 = sig > sig2 and sig > 0 ? bc_sig_up : sig < sig2 and sig < 0 ? bc_sig_down : bc_neut
+
+bc_selection = i_bc_selection == 'KVO | Gradient' ? bc_1 : i_bc_selection == 'KVO | Centerline' ? bc_2 : i_bc_selection == 'KVO | Signal Line' ? bc_3 : i_bc_selection == 'Smoothed KVO | Gradient' ? bc_4 : i_bc_selection == 'Smoothed KVO | Centerline' ? bc_5 : i_bc_selection == 'Smoothed KVO | Secondary Signal Line' ? bc_6 : na
+barcolor(bar_color ? bc_selection : na, title='Bar Colors')
+
+// -----------------------------------------------------------------------------------------------
+//   Alerts
+// -----------------------------------------------------------------------------------------------
+
+alertcondition(ta.cross(kvo, inner_upper), title='Klinger Oscillator Crossing into Upper Donchian Channel', message='The Klinger Oscillator has crossed into upper Donchian Channel.')
+alertcondition(ta.cross(kvo, inner_lower), title='Klinger Oscillator Crossing into Lower Donchian Channel', message='The Klinger Oscillator has crossed into lower Donchian Channel.')
+alertcondition(ta.cross(kvo, sig), title='Klinger Oscillator Crossing Signal Line', message='The Klinger Oscillator has crossed the signal line.')
+alertcondition(ta.cross(kvo, 0), title='Klinger Oscillator Crossing Centerline', message='The Klinger Oscillator has crossed the centerline.')
+alertcondition(ta.cross(sig, 0), title='Smoothed Klinger Oscillator Crossing Centerline', message='The smoothed Klinger Oscillator has crossed the centerline.')
+alertcondition(ta.cross(sig, sig2), title='Smoothed Klinger Oscillator Crossing Signal Line', message='The smoothed Klinger Oscillator has crossed the signal line.')
+alertcondition(bull_cond, title='Bull Div', message='+ Klinger Oscillator bull div')
+alertcondition(hdn_bull_cond, title='Hidden Bull Div', message='+ Klinger Oscillator hidden bull div')
+alertcondition(bear_cond, title='Bear Div', message='+ Klinger Oscillator bear div')
+alertcondition(hdn_bear_cond, title='Hidden Bear Div', message='+ Klinger Oscillator hidden bear div')
