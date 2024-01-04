@@ -1,20 +1,110 @@
 //@version=5
 // https://TheIceJi.com
 
-indicator(title='TheIceJi Visualize-X', shorttitle='IJN Viz-X', overlay = true , max_labels_count = 500 , max_lines_count = 500 , max_boxes_count = 500 , max_bars_back = 500)
-g_MainOpt = 'Main Options'
-bool show_zigzag = input(true, 'Zigzag', group=g_MainOpt)
-bool show_ribbon = input(true, 'Ribbon', group=g_MainOpt)
-bool show_MAactionArea = input(true, 'MA Action area', group=g_MainOpt)
-bool show_moreSignal = input(false, 'Additional signals', group=g_MainOpt)
-bool show_ewoHistogram = input.bool(false, 'EWO Histogram', inline='VOL', group=g_MainOpt)
+indicator(title='IJN Visualize-X', shorttitle='IJN Viz-X', overlay = true , max_labels_count = 500 , max_lines_count = 500 , max_boxes_count = 500 , max_bars_back = 500)
+
+// ------------------------------------------------
+//                     Global
+// ------------------------------------------------
+
+import TradingView/ta/4 as TvTa
+import LucF/ta/2 as LucfTa
+import ClassicScott/MyMovingAveragesLibrary/3 as mymas
+import ClassicScott/MyVolatilityBands/3 as volbands
+
+string STL1 = "Line"
+string STL2 = "Circles"
+string STL3 = "Crosses"
+
+color LIME = #00FF00ff
+color LIME_MD = #00FF0090
+color LIME_LT = #00FF0040
+color TEAL = #008080ff
+color TEAL_MD = #00808090
+color TEAL_LT = #00808040
+color PINK = #FF0080ff
+color PINK_MD = #FF008090
+color PINK_LT = #FF008040
+color MAROON = #800000ff
+color MAROON_MD = #80000090
+color MAROON_LT = #80000040
+color ORANGE = #c56606ff
+color ORANGE_BR = #FF8000ff
+color GRAY = #808080ff
+color GRAY_MD = #80808090
+color GRAY_LT = #80808030
+color WHITE = #FFFFFFff
+
+string bC_ema = 'EMA Crossing'
+string bC_ocw = 'Oscillator Workbench'
+string bC_wto = 'WaveTrend Oscillator'
+string bC_kvo = 'Klinger Volume Oscillator'
+string bC_mono = 'Monochrome (black&white)'
+
+string g_MainOpt = 'Main Options'
+bool show_zigzag = input.bool(true, 'Zigzag Line', group=g_MainOpt)
+bool show_ribbon = input.bool(true, 'EMA Ribbon', group=g_MainOpt)
+bool show_ribbon_fill = input.bool(true, 'EMA Ribbon Fill', group=g_MainOpt)
+bool show_sig_ema_1 = input.bool(true, 'EMA signals', group=g_MainOpt)
+bool show_sig_ema_2 = input.bool(false, 'Additional EMA signals', group=g_MainOpt)
+bool show_MAactionArea = input.bool(true, 'MA Action area', group=g_MainOpt)
+bool show_sig_action = input.bool(true, 'Buy/Sell signals (EMA)', group=g_MainOpt)
+bool show_sig_mom_bias = input.bool(false, 'Momentum Bias signals (EMA + RSI)', group=g_MainOpt)
+bool show_ewoHistogram = input.bool(false, 'Elliott Wave Oscillator (EWO) Histogram', group=g_MainOpt)
+bool show_sig_ewo = input.bool(true, 'Elliott Wave Oscillator (EWO) Signal', group=g_MainOpt)
 bool show_ichiEMA = input.bool(true, 'Ichimuku EMA', group=g_MainOpt)
-bool osclLineShowInput = input.bool(true, "Oscillator line", inline = "oscLine", group=g_MainOpt)
+bool osclLineShowInput = input.bool(true, "Oscillator Wave Channel (OWC) Line", inline = "oscLine", group=g_MainOpt)
 bool divLinesShowInput = input.bool(true, "Divergence levels", inline = "divLines", group=g_MainOpt)
 bool charDivShowInput = input.bool(true, "Divergence mark", inline = "divChar", group=g_MainOpt)
-bool bar_paint = input(true, 'Paint Bar Colors', group=g_MainOpt)
+bool bar_paint = input.bool(true, 'Paint Bar Colors', group=g_MainOpt)
 string bar_paintMode = input.string('Change color', 'Bar Paint Mode', options=['Change color', 'Replace candles'], group=g_MainOpt)
-string bar_paintType = input.string('CDC', 'Bar Colors Type', options=['CDC', 'DGT', 'OSC', 'MMT', 'Mono', 'none'], group=g_MainOpt)
+string bar_paintType = input.string(bC_ema, 'Bar Colors Type', options=[bC_ema, bC_ocw, bC_wto, bC_kvo, bC_mono, 'none'], group=g_MainOpt)
+
+string g_barColor = 'Bar Colors'
+color BC_EMA_GREEN = input.color(color.new(color.green, 0), title='EMA 🡑🡑🡑', inline='bc_ema', group=g_barColor)
+color BC_EMA_LBLUE = input.color(color.new(color.aqua, 0), title='🡑🡑', inline='bc_ema', group=g_barColor)
+color BC_EMA_BLUE = input.color(color.new(color.blue, 0), title='🡑', inline='bc_ema', group=g_barColor)
+color BC_EMA_YELLOW = input.color(color.new(color.yellow , 0), title='🡓', inline='bc_ema', group=g_barColor)
+color BC_EMA_ORANGE = input.color(color.new(color.orange, 0), title='🡓🡓', inline='bc_ema', group=g_barColor)
+color BC_EMA_RED = input.color(color.new(color.red, 0), title='🡓🡓🡓', inline='bc_ema', group=g_barColor)
+string BCS_WTO1 = 'WT 1 Gradient'
+string BCS_WTO2 = 'WT 1 Centerline'
+string BCS_WTO3 = 'WT 2 Gradient'
+string BCS_WTO4 = 'WT 2 Centerline'
+string BCS_WTO = input.string(BCS_WTO1, 'WaveTrend (WTO) Bar Mode', options=[BCS_WTO1, BCS_WTO2, BCS_WTO3, BCS_WTO4], group=g_barColor)
+series float BC_WTO_I_src = input(hlc3, title='WTO Source', group=g_barColor)
+int BC_WTO_I_cLkbk1 = input.int(defval=8, title='WT 1 Channel Lookback', inline='bc_wto_1', group=g_barColor)
+int BC_WTO_I_aLkbk1 = input.int(defval=13, title='WT 1 Average Lookback', inline='bc_wto_1', group=g_barColor)
+int BC_WTO_I_cLkbk2 = input.int(defval=13, title='WT 2 Channel Lookback', inline='bc_wto_2', group=g_barColor)
+int BC_WTO_I_aLkbk2 = input.int(defval=34, title='WT 2 Average Lookback', inline='bc_wto_2', group=g_barColor)
+color BC_WTO_1_UP = input.color(color.new(#ff9800, 0), title='WTO 1🡑', inline='bc_wto', group=g_barColor)
+color BC_WTO_1_DOWN = input.color(color.new(#2962ff, 0), title='1🡓', inline='bc_wto', group=g_barColor)
+color BC_WTO_2_UP = input.color(color.new(#00bcd4, 0), title='2🡑', inline='bc_wto', group=g_barColor)
+color BC_WTO_2_DOWN = input.color(color.new(#e91e63, 0), title='2🡓', inline='bc_wto', group=g_barColor)
+color BC_WTO_NEUT = input.color(color.new(#787b86, 0), 'N',  inline='bc_wto', group=g_barColor)
+string BCS_KVO1 = 'KVO | Gradient'
+string BCS_KVO2 = 'KVO | Centerline'
+string BCS_KVO3 = 'Smoothed KVO | Gradient'
+string BCS_KVO4 = 'Smoothed KVO | Centerline'
+string BCS_KVO = input.string(BCS_KVO1, 'Klinger Volume Oscillator (KVO) Bar Mode', options=[BCS_KVO1, BCS_KVO2, BCS_KVO3, BCS_KVO4], group=g_barColor)
+color BC_KVO_UP = input.color(color.new(#ff9800, 0), 'KVO 🡑', inline='bc_kvo', group=g_barColor)
+color BC_KVO_DOWN = input.color(color.new(#2962ff, 0), '🡓', inline='bc_kvo', group=g_barColor)
+color BC_KVO_SIG_UP = input.color(color.new(#00bcd4, 0), 'S🡑h', inline='bc_kvo', group=g_barColor)
+color BC_KVO_SIG_DOWN = input.color(color.new(#e91e63, 0), 'S🡓', inline='bc_kvo', group=g_barColor)
+color BC_KVO_NEUT = input.color(color.new(#787b86, 0), 'N', inline='bc_kvo', group=g_barColor)
+string BCS_OCW0  = "None"
+string BCS_OCW1  = "On divergences only"
+string BCS_OCW2  = "On divergences and on the state of the oscillator channel"
+string BCS_OCW3  = "On divergences and on the state of the divergence channel"
+string BCS_OCW4  = "On divergences and on the combined state of both channels"
+string BCS_OCW = input.string(BCS_OCW3, 'Oscillator Workbench (OWC) Bar Mode', options=[BCS_OCW1, BCS_OCW2, BCS_OCW3, BCS_OCW4], group=g_barColor)
+bool BC_OCW_EmptyOnDecVolInput = input.bool(false, "Don't color falling volume bars", group=g_barColor)
+color BC_OCW_UpUpColorInput = input.color(LIME, "🡑🡑", inline = "barColors", group=g_barColor)
+color BC_OCW_DnDnColorInput = input.color(PINK, "🡓🡓", inline = "barColors", group=g_barColor)
+color BC_OCW_UpColorInput = input.color(TEAL, "🡑", inline = "barColors", group=g_barColor)
+color BC_OCW_DnColorInput = input.color(MAROON, "🡓", inline = "barColors", group=g_barColor)
+color BC_OCW_NtColorInput = input.color(GRAY, "N", inline = "barColors", group=g_barColor)
+color BC_OCW_DivColorInput = input.color(ORANGE, "D", inline = "barColors", group=g_barColor)
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════ //
 //# * ══════════════════════════════════════════════════════════════════════════════════════════════
@@ -27,11 +117,11 @@ string bar_paintType = input.string('CDC', 'Bar Colors Type', options=['CDC', 'D
 // -----------------------------------------------------------------------------------------------
 //   Define User Input Variables
 // -----------------------------------------------------------------------------------------------
-g_Zigzag = 'Zigzag'
-atrPeriod = input(10, 'ATR Length', group=g_Zigzag)
-factor = input.float(3, 'Factor', step = 0.1, group=g_Zigzag)
-atrline = input.float(1.5, 'Premium/Discount', step = 0.1, group=g_Zigzag)
-zigzagWidth = input.int(3, 'Width', step = 1, group=g_Zigzag)
+string g_Zigzag = 'Zigzag'
+int atrPeriod = input.int(10, 'ATR Length', group=g_Zigzag)
+float factor = input.float(3, 'Factor', step = 0.1, group=g_Zigzag)
+float atrline = input.float(1.5, 'Premium/Discount', step = 0.1, group=g_Zigzag)
+int zigzagWidth = input.int(3, 'Width', step = 1, group=g_Zigzag)
 
 // -----------------------------------------------------------------------------------------------
 //   Calculations
@@ -44,12 +134,14 @@ barsturngreen = bar_index - ta.valuewhen(turnGreen, bar_index, 0)
 barsturnred = bar_index - ta.valuewhen(turnRed, bar_index, 0)
 barsg = barsturngreen>0 ? barsturngreen : 1
 zz_h1 = ta.highest(high,barsg)
+zz_h1_change = ta.change(zz_h1)
 barsr = barsturnred>0 ? barsturnred : 1
-zz_l2 = ta.lowest(low,barsr) 
-barsh = bar_index - ta.valuewhen(ta.change(zz_h1),bar_index,0)
-barsl = bar_index - ta.valuewhen(ta.change(zz_l2),bar_index,0)
-barsh2 = bar_index - ta.valuewhen(ta.change(zz_h1),bar_index,1)
-barsl2 = bar_index - ta.valuewhen(ta.change(zz_l2),bar_index,1)
+zz_l2 = ta.lowest(low,barsr)
+zz_l2_change = ta.change(zz_l2)
+barsh = bar_index - ta.valuewhen(zz_h1_change,bar_index,0)
+barsl = bar_index - ta.valuewhen(zz_l2_change,bar_index,0)
+barsh2 = bar_index - ta.valuewhen(zz_h1_change,bar_index,1)
+barsl2 = bar_index - ta.valuewhen(zz_l2_change,bar_index,1)
 
 // -----------------------------------------------------------------------------------------------
 //   Drawing
@@ -64,7 +156,7 @@ if turnGreen
 // ══════════════════════════════════════════════════════════════════════════════════════════════════ //
 //# * ══════════════════════════════════════════════════════════════════════════════════════════════
 //# *
-//# * Module : Wave Trend
+//# * Module : WaveTrend & WaveTrend Oscillator
 //# *
 //# * ══════════════════════════════════════════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════════════════════════════════════════════ //
@@ -72,31 +164,31 @@ if turnGreen
 // -----------------------------------------------------------------------------------------------
 //   Define User Input Variables
 // -----------------------------------------------------------------------------------------------
-g_WT = 'WaveTrend'
-wtChannelLen = input(9, title='WT Channel Length', group=g_WT)
-wtAverageLen = input(13, title='WT Average Length', group=g_WT)
-wtMASource = input(hlc3, title='WT MA Source', group=g_WT)
-wtMALen = input(3, title='WT MA Length', group=g_WT)
-obLevel = input(53, title='WT Overbought Level 1', group=g_WT)
-obLevel2 = input(60, title='WT Overbought Level 2', group=g_WT)
-obLevel3 = input(100, title='WT Overbought Level 3', group=g_WT)
-osLevel = input(-53, title='WT Oversold Level 1', group=g_WT)
-osLevel2 = input(-60, title='WT Oversold Level 2', group=g_WT)
-osLevel3 = input(-80, title='WT Oversold Level 3', group=g_WT)
-ema1Len = input(7, title='EMA 1 Length', group=g_WT)
-ema2Len = input(14, title='EMA 2 Length', group=g_WT)
-ema3Len = input(18, title='EMA 3 Length', group=g_WT)
-ema4Len = input(28, title='EMA 4 Length', group=g_WT)
-ema5Len = input(34, title='EMA 5 Length', group=g_WT)
-ema6Len = input(50, title='EMA 6 Length', group=g_WT)
-ema7Len = input(100, title='EMA 7 Length', group=g_WT)
-ema8Len = input(200, title='EMA 8 Length', group=g_WT)
-rsiSRC = input(close, title='RSI Source', group=g_WT)
-rsiLen = input(14, title='RSI Length', group=g_WT)
-rsiOversold = input.int(30, title='RSI Oversold', minval=0, maxval=100, group=g_WT)
-rsiOverbought = input.int(60, title='RSI Overbought', minval=0, maxval=60, group=g_WT)
-rsiMFIperiod = input(60, title='RSI+MFI Period', group=g_WT)
-rsiMFIMultiplier = input(150, title='RSI+MFI Area multiplier', group=g_WT)
+string g_WT = 'WaveTrend'
+int wtChannelLen = input.int(9, 'WT Channel Length', group=g_WT)
+int wtAverageLen = input.int(13, 'WT Average Length', group=g_WT)
+series float wtMASource = input(hlc3, 'WT MA Source', group=g_WT)
+int wtMALen = input.int(3, 'WT MA Length', group=g_WT)
+int obLevel = input.int(53, 'WT Overbought Level 1', group=g_WT)
+int obLevel2 = input.int(60, 'WT Overbought Level 2', group=g_WT)
+int obLevel3 = input.int(100, 'WT Overbought Level 3', group=g_WT)
+int osLevel = input.int(-53, 'WT Oversold Level 1', group=g_WT)
+int osLevel2 = input.int(-60, 'WT Oversold Level 2', group=g_WT)
+int osLevel3 = input.int(-80, 'WT Oversold Level 3', group=g_WT)
+int ema1Len = input.int(7, 'EMA 1 Length', group=g_WT)
+int ema2Len = input.int(14, 'EMA 2 Length', group=g_WT)
+int ema3Len = input.int(18, 'EMA 3 Length', group=g_WT)
+int ema4Len = input.int(28, 'EMA 4 Length', group=g_WT)
+int ema5Len = input.int(34, 'EMA 5 Length', group=g_WT)
+int ema6Len = input.int(50, 'EMA 6 Length', group=g_WT)
+int ema7Len = input.int(100, 'EMA 7 Length', group=g_WT)
+int ema8Len = input.int(200, 'EMA 8 Length', group=g_WT)
+series float rsiSRC = input(close, 'RSI Source', group=g_WT)
+int rsiLen = input.int(14, 'RSI Length', group=g_WT)
+int rsiOversold = input.int(30, 'RSI Oversold', minval=0, maxval=100, group=g_WT)
+int rsiOverbought = input.int(60, 'RSI Overbought', minval=0, maxval=60, group=g_WT)
+int rsiMFIperiod = input.int(60, 'RSI+MFI Period', group=g_WT)
+int rsiMFIMultiplier = input.int(150, 'RSI+MFI Area multiplier', group=g_WT)
 
 // -----------------------------------------------------------------------------------------------
 //   Functions
@@ -149,6 +241,18 @@ yellowCross = redDiamond and wt2 < 45 and wt2 > osLevel3 and rsi < 30 and rsi > 
 bloodDiamond = redDiamond and redCross
 bullCandle = open > ema2 and open > ema8 and close[1] > open[1] and close > open and not redDiamond and not redCross
 shortEma = ta.crossover(ema8, ema2)
+// Oscillator
+wto_esa = ta.ema(BC_WTO_I_src, BC_WTO_I_cLkbk1)
+wto_d = ta.ema(math.abs(BC_WTO_I_src - wto_esa), BC_WTO_I_cLkbk1)
+wto_ci = (BC_WTO_I_src - wto_esa) / (0.015 * wto_d)
+wto_tci = ta.ema(wto_ci, BC_WTO_I_aLkbk1)
+wto_1 = wto_tci
+
+wto_esa2 = ta.ema(BC_WTO_I_src, BC_WTO_I_cLkbk2)
+wto_d2 = ta.ema(math.abs(BC_WTO_I_src - wto_esa2), BC_WTO_I_cLkbk2)
+wto_ci2 = (BC_WTO_I_src - wto_esa2) / (0.015 * wto_d2)
+wto_tci2 = ta.ema(wto_ci2, BC_WTO_I_aLkbk2)
+wto_2 = wto_tci2
 
 // -----------------------------------------------------------------------------------------------
 //   Drawing
@@ -164,16 +268,16 @@ plot(ema5, color=show_ribbon ? ribbonDir ? color.new(#74abff, 85) : color.new(#f
 plot(ema6, color=show_ribbon ? ribbonDir ? color.new(#74abff, 60) : color.new(#ffc774, 60) : na, linewidth=1, title='EMA 6')
 plot(ema7, color=show_ribbon ? ribbonDir ? color.new(#74abff, 50) : color.new(#ffc774, 50) : na, linewidth=2, title='EMA 7')
 plot(ema8, color=show_ribbon ? ribbonDir ? color.new(#1dce17, 20)  : color.new(#ff3131, 20) : na, linewidth=2, title='EMA 8')
-p8 = plot(ema8, color=show_ribbon ? na : colorEma, linewidth=2, title='EMA 8')
-fill(p1, p2, color=ribbonDir ? color.new(#1573d4, 85) : color.new(#ffee00, 85))
-fill(p2, p8, color=color.new(#363a45, 85))
+p8 = plot(ema8, color=show_ribbon ? colorEma : na, linewidth=2, title='EMA 8')
+fill(p1, p2, color=show_ribbon_fill ? ribbonDir ? color.new(#1573d4, 85) : color.new(#ffee00, 85) : na)
+fill(p2, p8, color=show_ribbon ? color.new(#363a45, 85) : na)
 // SHAPES
-plotshape(redCross, style=shape.xcross, color=color.new(#ff0000, 20), location=location.abovebar, title='Red cross')
-plotshape(blueTriangle, style=shape.triangleup, color=color.new(#0066ff, 20), location=location.abovebar, title='Blue Triangle')
-plotshape(show_moreSignal ? redDiamond : na, style=shape.diamond, color=color.new(#ff0000, 25), location=location.abovebar, title='Red Diamond')
-plotshape(show_moreSignal ? bullCandle : na, style=shape.diamond, color=color.new(color.yellow, 75), location=location.abovebar, title='Bull candle')
-plotshape(show_moreSignal ? bloodDiamond : na, style=shape.diamond, color=color.new(#ff0000, 15), location=location.abovebar, title='Blood Diamond')
-plotshape(show_moreSignal ? yellowCross : na, style=shape.xcross, color=color.new(color.yellow, 25), location=location.abovebar, title='Yellow Cross')
+plotshape(show_sig_ema_1 ? redCross : na, style=shape.xcross, color=color.new(#ff0000, 20), location=location.abovebar, title='Red cross')
+plotshape(show_sig_ema_1 ? blueTriangle : na, style=shape.triangleup, color=color.new(#0066ff, 20), location=location.abovebar, title='Blue Triangle')
+plotshape(show_sig_ema_2 ? redDiamond : na, style=shape.diamond, color=color.new(#ff0000, 25), location=location.abovebar, title='Red Diamond')
+plotshape(show_sig_ema_2 ? bullCandle : na, style=shape.diamond, color=color.new(color.yellow, 75), location=location.abovebar, title='Bull candle')
+plotshape(show_sig_ema_2 ? bloodDiamond : na, style=shape.diamond, color=color.new(#ff0000, 15), location=location.abovebar, title='Blood Diamond')
+plotshape(show_sig_ema_2 ? yellowCross : na, style=shape.xcross, color=color.new(color.yellow, 25), location=location.abovebar, title='Yellow Cross')
 
 // -----------------------------------------------------------------------------------------------
 //   Alerts
@@ -196,27 +300,29 @@ plotshape(show_moreSignal ? yellowCross : na, style=shape.xcross, color=color.ne
 // -----------------------------------------------------------------------------------------------
 //   Define User Input Variables
 // -----------------------------------------------------------------------------------------------
-g_AZ = 'Action Zone'
-xsrc = input(title='Source Data', defval=close, group=g_AZ)
-xprd1 = input(title='Fast EMA period', defval=12, group=g_AZ)
-xprd2 = input(title='Slow EMA period', defval=26, group=g_AZ)
-xsmooth = input(title='Smoothing period (1 = no smoothing)', defval=1, group=g_AZ)
-labelSwitch = input(title='Turn on assistive text', defval=false, group=g_AZ)
-plotSigsw = input(title='Plot Buy/Sell Signals? ', defval=true, group=g_AZ)
-plotRibsw = input(title='Plot Buy/Sell Ribbon', defval=false, group=g_AZ)
-plotRibbonPos = input.string(title='Ribbon Position', options=['Top', 'Bottom'], defval='Top', group=g_AZ)
-xfixtf = input(title='** Use Fixed time frame Mode (advanced) **', defval=false, group=g_AZ)
-xtf = input.timeframe(title='** Fix chart to which time frame ? **)', defval='D', group=g_AZ)
-plotSig2sw = input(title='Plot momentum based Buy/Sell Signals? ', defval=false, group=g_AZ)
-plotSig2lv = input.int(title='Set signal threshold (higher = stricter)', defval=1, minval=0, maxval=1, group=g_AZ)
+string g_AZ = 'Action Zone'
+series float xsrc = input(close, 'Source Data', group=g_AZ)
+int xprd1 = input.int(12, 'Fast EMA period', group=g_AZ)
+int xprd2 = input.int(26, 'Slow EMA period', group=g_AZ)
+int xsmooth = input.int(1, 'Smoothing period (1 = no smoothing)', group=g_AZ)
+bool xfixtf = input(false, '** Use Fixed time frame Mode (advanced) **', group=g_AZ)
+string xtf = input.timeframe('D', '** Fix chart to which time frame ? **)', group=g_AZ)
+int plotSig2lv = input.int(1, 'Set signal threshold (higher = stricter)', minval=0, maxval=1, group=g_AZ)
 // Momentum Signal using StochRSI
-smoothK = 3
-smoothD = 3
-RSIlen = 14
-STOlen = 14
-SRsrc = close
-OSlevel = 30
-OBlevel = 70
+int smoothK = input.int(3,"StochRSI smooth K", minval=1, group=g_AZ)
+int smoothD = input.int(3,"StochRSI smooth D", minval=1, group=g_AZ)
+int RSIlen = input.int(14,"RSI length", minval=1, group=g_AZ)
+int STOlen = input.int(14,"Stochastic length", minval=1, group=g_AZ)
+series float SRsrc = input(close,"Source for StochasticRSI", group=g_AZ)
+float OSlevel = input.float(30,"Oversold Threshold", minval=0.00, maxval=100.00, group=g_AZ)
+float OBlevel = input.float(70,"Overbuy Threshold", minval=0.00, maxval=100.00, group=g_AZ)
+// smoothK = 3
+// smoothD = 3
+// RSIlen = 14
+// STOlen = 14
+// SRsrc = close
+// OSlevel = 30
+// OBlevel = 70
 
 // -----------------------------------------------------------------------------------------------
 //   Calculations
@@ -235,7 +341,6 @@ d = ta.sma(k, smoothD)
 esa = ta.ema(wtMASource, ema1Len)
 ci = (wtMASource - esa) / (0.015 * d)
 tci = ta.ema(ci, ema2Len)
-wt_1 = tci
 
 // -----------------------------------------------------------------------------------------------
 //   Define condition
@@ -279,23 +384,11 @@ SlowL = plot(show_MAactionArea ? SlowMA : na, 'Slow EMA', color=color.new(color.
 fillcolor = Bull ? color.new(#00ff4c, 85) : Bear ? color.new(#ff4800, 85) : color.black
 fill(FastL, SlowL, fillcolor)
 // Buy and Sell point
-plotshape(plotSigsw ? buy : na, style=shape.circle, title='Buy Signal', location=location.belowbar, color=color.new(color.green, 0))
-plotshape(plotSigsw ? sell : na, style=shape.circle, title='Sell Signal', location=location.abovebar, color=color.new(color.red, 0))
-// Buy/Sell Ribbon
-plotshape(plotRibsw ? plotRibbonPos == 'Top' ? close : na : na, style=shape.square, title='Buy/Sell Ribbon', location=location.top, color=bColor_BullBear)
-plotshape(plotRibsw ? plotRibbonPos == 'Bottom' ? close : na : na, style=shape.square, title='Buy/Sell Ribbon', location=location.bottom, color=bColor_BullBear)
+plotshape(show_sig_action ? buy : na, style=shape.circle, title='Buy Signal', location=location.belowbar, color=color.new(color.green, 0))
+plotshape(show_sig_action ? sell : na, style=shape.circle, title='Sell Signal', location=location.abovebar, color=color.new(color.red, 0))
 // Momentum Signal using StochRSI
-plotshape(plotSig2sw ? storsiBuySig > plotSig2lv ? storsiBuySig : na : na, 'Buy more signals', style=shape.triangleup, location=location.belowbar, color=color.new(color.teal, 0))
-plotshape(plotSig2sw ? storsiSellSig > plotSig2lv ? storsiSellSig : na : na, 'Sell more signals', style=shape.triangledown, location=location.abovebar, color=color.new(color.orange, 0))
-// Labels
-labelstyle = close > SlowMA ? label.style_label_down : label.style_label_up
-labelyloc = close > SlowMA ? yloc.abovebar : yloc.belowbar
-labeltcolor = buy ? color.black : sell ? color.white : close > close[1] ? color.green : color.red
-labelbgcolor = buy ? color.green : sell ? color.red : color.silver
-labeltext = buy ? 'BUY next bar\n' : sell ? 'SELL next bar\n' : ' '
-trendText = bullish ? 'bullish' : bearish ? 'bearish' : 'sideways'
-l1 = label.new(bar_index, na, text=labeltext + syminfo.ticker + ' ' + str.tostring(close) + ' ' + syminfo.currency + '\n currently in a ' + trendText + ' trend \n', color=labelbgcolor, textcolor=labeltcolor, yloc=labelyloc, style=labelstyle)
-label.delete(labelSwitch ? l1[1] : l1)
+plotshape(show_sig_mom_bias ? storsiBuySig > plotSig2lv ? storsiBuySig : na : na, 'Buy more signals', style=shape.triangleup, location=location.belowbar, color=color.new(color.teal, 0))
+plotshape(show_sig_mom_bias ? storsiSellSig > plotSig2lv ? storsiSellSig : na : na, 'Sell more signals', style=shape.triangledown, location=location.abovebar, color=color.new(color.orange, 0))
 
 // -----------------------------------------------------------------------------------------------
 //   Alerts
@@ -323,15 +416,15 @@ alertcondition(sell, title='*Sell Alert', message='Sell {{exchange}}:{{ticker}}'
 // -----------------------------------------------------------------------------------------------
 //   Define User Input Variables
 // -----------------------------------------------------------------------------------------------
-g_EWO = 'Elliott Wave Oscillator'
-ewoSource = input(close, title='EWO Source', group=g_EWO)
-ewoEMA = input.bool(true, 'Use Exponential MA', group=g_EWO)
-ewoDelay = input.int(5, 'Signal : Delay', minval=2, inline='EWO', group=g_EWO)
-ewoThreshold = input.int(13, 'Strength Threshold', minval=1, inline='EWO', group=g_EWO)
-ewoPlotLen = input.int(233, 'Plotting Length', group=g_EWO)
-ewoOffset = input.int(1000, 'Histogram Offet', group=g_EWO)
-oscPlacement = input.string('Bottom', '', options = ['Top', 'Bottom'], inline='VOL'   , group = g_EWO)
-oscHight = 21 - input.int(7, 'Hight' , minval = 1, maxval = 10, inline='VOL'  , group = g_EWO) * 2
+string g_EWO = 'Elliott Wave Oscillator'
+series float ewoSource = input(close, title='EWO Source', group=g_EWO)
+bool ewoEMA = input.bool(true, 'Use Exponential MA', group=g_EWO)
+int ewoDelay = input.int(5, 'Signal : Delay', minval=2, inline='EWO', group=g_EWO)
+int ewoThreshold = input.int(13, 'Strength Threshold', minval=1, inline='EWO', group=g_EWO)
+int ewoPlotLen = input.int(233, 'Plotting Length', group=g_EWO)
+int ewoOffset = input.int(1000, 'Histogram Offet', group=g_EWO)
+string oscPlacement = input.string('Bottom', '', options = ['Top', 'Bottom'], inline='VOL' , group = g_EWO)
+int oscHight = 21 - input.int(7, 'Hight' , minval = 1, maxval = 10, inline='VOL'  , group = g_EWO) * 2
 
 // -----------------------------------------------------------------------------------------------
 //   Calculations
@@ -342,10 +435,10 @@ ewoSignal = ewoEMA ? ta.ema(ewo, ewoDelay) : ta.sma(ewo, ewoDelay)
 // -----------------------------------------------------------------------------------------------
 //   Drawing
 // -----------------------------------------------------------------------------------------------
-plotshape(ta.crossover (ewo, ewoSignal) and ewo < -ewoThreshold, 'Strong Long' , shape.labelup  , location.belowbar, color.new(#006400, 40)    , size=size.small, show_last=ewoPlotLen)  //, text="↑", textcolor=color.white)
-plotshape(ta.crossover (ewo, ewoSignal) and ewo > -ewoThreshold, 'Long'        , shape.labelup  , location.belowbar, color.new(color.green, 70), size=size.tiny , show_last=ewoPlotLen)
-plotshape(ta.crossunder(ewo, ewoSignal) and ewo >  ewoThreshold, 'Strong Short', shape.labeldown, location.abovebar, color.new(#910000, 40)    , size=size.small, show_last=ewoPlotLen)  //, text="↓", textcolor=color.white)
-plotshape(ta.crossunder(ewo, ewoSignal) and ewo <  ewoThreshold, 'Short'       , shape.labeldown, location.abovebar, color.new(color.red, 70)  , size=size.tiny , show_last=ewoPlotLen)
+plotshape(ta.crossover(ewo, ewoSignal) and ewo < -ewoThreshold, 'Strong Long' , shape.labelup , location.belowbar, show_sig_ewo ? color.new(#006400, 40) : na, size=size.small, show_last=ewoPlotLen)  //, text="↑", textcolor=color.white)
+plotshape(ta.crossover(ewo, ewoSignal) and ewo > -ewoThreshold, 'Long' , shape.labelup , location.belowbar, show_sig_ewo ? color.new(color.green, 70) : na, size=size.tiny , show_last=ewoPlotLen)
+plotshape(ta.crossunder(ewo, ewoSignal) and ewo > ewoThreshold, 'Strong Short', shape.labeldown, location.abovebar, show_sig_ewo ? color.new(#910000, 40) : na, size=size.small, show_last=ewoPlotLen)  //, text="↓", textcolor=color.white)
+plotshape(ta.crossunder(ewo, ewoSignal) and ewo < ewoThreshold, 'Short' , shape.labeldown, location.abovebar, show_sig_ewo ? color.new(color.red, 70) : na, size=size.tiny , show_last=ewoPlotLen)
 
 // -----------------------------------------------------------------------------------------------
 //   EWO Histogram
@@ -386,35 +479,11 @@ if barstate.islast and show_ewoHistogram
 // ══════════════════════════════════════════════════════════════════════════════════════════════════ //
 //# * ══════════════════════════════════════════════════════════════════════════════════════════════
 //# *
-//# * Module : OWC
+//# * Module : Oscillator Workbench Chart (OWC)
 //# *
 //# * ══════════════════════════════════════════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════════════════════════════════════════════ //
-import TradingView/ta/4 as TvTa
-import LucF/ta/2 as LucfTa
 
-string STL1 = "Line"
-string STL2 = "Circles"
-string STL3 = "Crosses"
-// Colors
-color LIME      = #00FF00ff
-color LIME_MD   = #00FF0090
-color LIME_LT   = #00FF0040
-color TEAL      = #008080ff
-color TEAL_MD   = #00808090
-color TEAL_LT   = #00808040
-color PINK      = #FF0080ff
-color PINK_MD   = #FF008090
-color PINK_LT   = #FF008040
-color MAROON    = #800000ff
-color MAROON_MD = #80000090
-color MAROON_LT = #80000040
-color ORANGE    = #c56606ff
-color ORANGE_BR = #FF8000ff
-color GRAY      = #808080ff
-color GRAY_MD   = #80808090
-color GRAY_LT   = #80808030
-color WHITE     = #FFFFFFff
 // Oscillators
 string OS00 = "None"
 string OS01 = "RSI (SL)"
@@ -465,12 +534,6 @@ string BR8  = "The average of high, low, close and open (ohlc4)"
 // Divergence detection mode
 string DIV1 = "Opposite directions of the weighted and reference lines"
 string DIV2 = "Opposite directions of the oscillator and the polarity of close to close"
-// Bar color choices
-string CB0  = "None"
-string CB1  = "On divergences only"
-string CB2  = "On divergences and on the state of the oscillator channel"
-string CB3  = "On divergences and on the state of the divergence channel"
-string CB4  = "On divergences and on the combined state of both channels"
 // Reference MAs
 string MA01 = "Simple MA"
 string MA02 = "Exponential MA"
@@ -530,16 +593,6 @@ bool    divChannelBiasInput     = input.string("Off",       "Estimate unbreached
 string  charDivInput            = input.string("•",         "Divergence mark",                      group = GRP3, inline = "divChar")
 color   charDivColorInput       = input.color(ORANGE,       "",                                     group = GRP3, inline = "divChar")
 bool    charDivAboveInput       = input.bool(true,          "Above bar",                            group = GRP3, inline = "divChar")
-
-string  GRP4 = "OSC Bar Color"
-string  colorBarModeInput       = input.string(CB2,         "",                                     group = GRP4, inline = "barMode", options = [CB1, CB2, CB3, CB4])
-bool    barsEmptyOnDecVolInput  = input.bool(false,         "Don't color falling volume bars",      group = GRP4, inline = "barMode")
-color   barsUpUpColorInput      = input.color(LIME,         "🡑🡑",                                 group = GRP4, inline = "barColors")
-color   barsDnDnColorInput      = input.color(PINK,         "🡓🡓",                                   group = GRP4, inline = "barColors")
-color   barsUpColorInput        = input.color(TEAL,         "🡑",                                    group = GRP4, inline = "barColors")
-color   barsDnColorInput        = input.color(MAROON,       "🡓",                                    group = GRP4, inline = "barColors")
-color   barsNtColorInput        = input.color(GRAY,         "N",                                    group = GRP4, inline = "barColors")
-color   barsDivColorInput       = input.color(ORANGE,       "D",                                    group = GRP4, inline = "barColors")
 
 // -----------------------------------------------------------------------------------------------
 //   Functions
@@ -747,50 +800,149 @@ plotchar(charDivShowInput ? divergence : na, "Divergence character", charDivInpu
 // ══════════════════════════════════════════════════════════════════════════════════════════════════ //
 //# * ══════════════════════════════════════════════════════════════════════════════════════════════
 //# *
+//# * Module : Klinger Volume Oscillator
+//# *
+//# * ══════════════════════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════════════════════════ //
+
+// -----------------------------------------------------------------------------------------------
+//   Define User Input Variables
+// -----------------------------------------------------------------------------------------------
+
+string g_KVO = 'Klinger Volume Oscillator (KVO)'
+series float kvo_src = input(close, 'Source for KVO', group=g_KVO)
+int kvo_lkbk_1 = input.int(34, title='Lookback for EMA 1', minval=1, group=g_KVO)
+int kvo_lkbk_2 = input.int(55, title='Lookback for EMA 2', minval=1, group=g_KVO)
+int dc_lkbk = input.int(50, 'Donchain Lookback', group=g_KVO)
+float dc_band_width = input.float(6, 'Donchain Band Thickness', step=0.5, group=g_KVO)
+string sig_ma = input.string('Exponential - EMA', 'Smooth KVO Type', options=['Arnaud Legoux - ALMA', 'Exponential - EMA', 'Double Exponential - DEMA', 'Triple Exponential - EMA', 'Fractal Adaptive - FRAMA', 'Kaufman Adaptive - KAMA', 'Hull - HMA', 'Jurik - JMA', 'Laguerre Filter', 'Least Squares - LSMA', 'McGinley Dynamic', 'Modular Filter', 'Rex Dog - RDMA', 'Simple - SMA', 'Smoothed - SMMA or RMA', 'Tillson T3', 'Triangular - TMA', 'Volatility-Adjusted - VAMA', 'Volume-Weighted - VWMA', 'Weighted - WMA', 'Zero-Lag - ZLMA'], group=g_KVO)
+int sig_lkbk = input.int(13, 'Smoothed KVO Lookback', group=g_KVO)
+int jurik_phase = input.int(1, 'Smoothed KVO Jurik Phase', minval=-100, maxval=100, inline='jma', group=g_KVO)
+int fc = input.int(34, 'Smoothed KVO FRAMA Fast Period', minval=1, inline='frama', group=g_KVO)
+int sc = input.int(89, 'Smoothed KVO FRAMA Slow Period', minval=1, inline='frama', group=g_KVO)
+float kfl = input.float(0.7, 'Smoothed KVO KAMA Fast End', minval=0.01, step=0.01, inline='kama', group=g_KVO)
+float ksl = input.float(0.065, 'Smoothed KVO KAMA Slow End', minval=0.01, step=0.0025, inline='kama', group=g_KVO)
+float alma_offset = input.float(0.85, 'Smoothed KVO ALMA Offset', step=0.05, inline='alma', group=g_KVO)
+float alma_sigma = input.float(6, 'Smoothed KVO ALMA Sigma', step=0.5, inline='alma', group=g_KVO)
+float jurik_power = input.float(1, 'Smoothed KVO Jurik Power', minval=0.1, maxval=10, step=0.1, inline='jma', group=g_KVO)
+float laguerre_alpha = input.float(0.7, 'Smoothed KVO Laguerre Filter Alpha', minval=0, maxval=1, step=0.025, inline='laguerre', group=g_KVO)
+int lsma_offset = input.int(9, 'Smoothed KVO Least Squares Offset', inline='lsma', group=g_KVO)
+float mf_beta = input.float(0.5, 'Smoothed KVO Modular Filter Beta', maxval=1, step=0.05, inline='mf', group=g_KVO)
+bool mf_feedback = input.bool(true, 'Smoothed KVO Modular Filter Feedback', inline='mf', group=g_KVO)
+float mf_z = input.float(0.2, 'Smoothed KVO Modular Filter Feedback Weighting', step=0.1, minval=0, maxval=1, inline='mf', group=g_KVO)
+int vol_lkbk = input.int(21, 'Smoothed KVO Volatility Adjusted Lookback Period', minval=1, group=g_KVO)
+
+// -----------------------------------------------------------------------------------------------
+//   Calculations
+// -----------------------------------------------------------------------------------------------
+
+sv = ta.change(kvo_src) >= 0 ? volume : -volume
+kvo = (ta.ema(sv, kvo_lkbk_1) - ta.ema(sv, kvo_lkbk_2))
+[basis, upper, lower, inner_upper, inner_lower] = volbands.donchianchannels(kvo, dc_lkbk, dc_band_width)
+
+ma(type, kvo_src, lkbk) =>
+    result = 0.0
+    if type == 'Arnaud Legoux - ALMA'
+        result := mymas.alma(kvo_src, lkbk, alma_offset, alma_sigma)
+        
+    if type == 'Exponential - EMA'
+        result := mymas.ema(kvo_src, lkbk)
+        
+    if type == 'Double Exponential - DEMA'
+        result := mymas.dema(kvo_src, lkbk)
+        
+    if type == 'Triple Exponential - TEMA'
+        result := mymas.tema(kvo_src, lkbk)
+        
+    if type == 'Fractal Adaptive - FRAMA'
+        result := mymas.frama(kvo_src, lkbk, fc, sc)
+    
+    if type == 'Kaufman Adaptive - KAMA'
+        result := mymas.kama(kvo_src, lkbk, kfl, ksl)
+
+    if type == 'Hull - HMA'
+        result := mymas.hma(kvo_src, lkbk)
+        
+    if type == 'Jurik - JMA'
+        result := mymas.jma(kvo_src, lkbk, jurik_phase, jurik_power)
+
+    if type == 'Laguerre Filter'
+        result := mymas.laguerre(kvo_src, laguerre_alpha) 
+        
+    if type == 'Least Squares - LSMA'
+        result := mymas.lsma(kvo_src, lkbk, lsma_offset)
+    
+    if type == "McGinley Dynamic"
+        result := mymas.mcginley(kvo_src, lkbk)
+        
+    if type == 'Modular Filter'
+        result := mymas.mf(kvo_src, lkbk, mf_feedback, mf_beta, mf_z)
+        
+    if type == 'Rex Dog - RDMA'
+        result := mymas.rdma(kvo_src)
+        
+    if type == 'Simple - SMA'
+        result := mymas.sma(kvo_src, lkbk)
+
+    if type == 'Smoothed - SMMA or RMA'
+        result := mymas.smma(kvo_src, lkbk)
+        
+    if type == 'Tillson T3'  // credits to Harry Potter for the calculations
+        result := mymas.t3(kvo_src, lkbk)
+        
+    if type == 'Triangular - TMA'
+        result := mymas.tma(kvo_src, lkbk)
+        
+    if type == 'Volatility-Adjusted - VAMA'
+        result := mymas.vama(kvo_src, lkbk, vol_lkbk)
+
+    if type == 'Volume-Weighted - VWMA'
+        result := mymas.vwma(kvo_src, lkbk)
+
+    if type == 'Weighted - WMA'
+        result := mymas.wma(kvo_src, lkbk)
+        
+    if type == 'Zero-Lag - ZLMA'
+        result := mymas.zlma(kvo_src, lkbk)
+        
+    result
+
+sig = ma(sig_ma, kvo, sig_lkbk)
+
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════ //
+//# * ══════════════════════════════════════════════════════════════════════════════════════════════
+//# *
 //# * Module : Global Transformations
 //# *
 //# * ══════════════════════════════════════════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════════════════════════════════════════════ //
 
-// Display color on chart
-bColor_CDC = Green ? color.green : Blue ? color.blue : LBlue ? color.aqua : Red ? color.red : Orange ? color.orange : Yellow ? color.yellow : color.black
-bColor_mono = Green or Blue or LBlue ? #b2b5be : Yellow ? #858891 : #5d606b
-bColor_MMT = color.from_gradient(wt_1, -60, 60, #2962ff, #ff9800)
+color bColor_ema = Green ? BC_EMA_GREEN : Blue ? BC_EMA_BLUE : LBlue ? BC_EMA_LBLUE : Red ? BC_EMA_RED : Orange ? BC_EMA_ORANGE : Yellow ? BC_EMA_YELLOW : color.black
 
-color bColor_OSC = if bar_paint
-    switch colorBarModeInput
-        CB1 =>
-            switch
-                divergence           => barsDivColorInput
-        CB2 =>
-            switch
-                divergence           => barsDivColorInput
-                oscChannelBullStrong => barsUpUpColorInput
-                oscChannelBearStrong => barsDnDnColorInput
-                oscChannelBull       => barsUpColorInput
-                oscChannelBear       => barsDnColorInput
-                => barsNtColorInput
-        CB3 =>
-            switch
-                divergence           => barsDivColorInput
-                divChannelBullStrong => barsUpUpColorInput
-                divChannelBearStrong => barsDnDnColorInput
-                divChannelBull       => barsUpColorInput
-                divChannelBear       => barsDnColorInput
-                => barsNtColorInput
-        CB4 =>
-            switch
-                divergence => barsDivColorInput
-                oscChannelBullStrong and divChannelBullStrong => barsUpUpColorInput
-                oscChannelBearStrong and divChannelBearStrong => barsDnDnColorInput
-                (oscChannelBull or oscChannelBullStrong) and (divChannelBull or divChannelBullStrong) => barsUpColorInput
-                (oscChannelBear or oscChannelBearStrong) and (divChannelBear or divChannelBearStrong) => barsDnColorInput
-                => barsNtColorInput
-        => na
-else
-    na
+color bColor_owc_1 = divergence ? BC_OCW_DivColorInput : na
+color bColor_owc_2 = divergence ? BC_OCW_DivColorInput : oscChannelBullStrong ? BC_OCW_UpUpColorInput : oscChannelBearStrong ? BC_OCW_DnDnColorInput : oscChannelBull ? BC_OCW_UpColorInput : oscChannelBear ? BC_OCW_DnColorInput : BC_OCW_NtColorInput
+color bColor_owc_3 = divergence ? BC_OCW_DivColorInput : divChannelBullStrong ? BC_OCW_UpUpColorInput : divChannelBearStrong ? BC_OCW_DnDnColorInput : divChannelBull ? BC_OCW_UpColorInput : divChannelBear ? BC_OCW_DnColorInput : BC_OCW_NtColorInput
+color bColor_owc_4 = divergence ? BC_OCW_DivColorInput : (oscChannelBullStrong and divChannelBullStrong) ? BC_OCW_UpUpColorInput : (oscChannelBearStrong and divChannelBearStrong) ? BC_OCW_DnDnColorInput : ((oscChannelBull or oscChannelBullStrong) and (divChannelBull or divChannelBullStrong)) ? BC_OCW_UpColorInput : ((oscChannelBear or oscChannelBearStrong) and (divChannelBear or divChannelBearStrong)) ? BC_OCW_DnColorInput : BC_OCW_NtColorInput
+color bColor_owc = BCS_OCW == BCS_OCW1 ? bColor_owc_1 : BCS_OCW == BCS_OCW2 ? bColor_owc_2 : BCS_OCW == BCS_OCW3 ? bColor_owc_3 : BCS_OCW == BCS_OCW4 ? bColor_owc_4 : na
 
-bColor = bar_paintType == 'CDC' ? bColor_CDC : bar_paintType == 'DGT' ? na : bar_paintType == 'OSC' ? bColor_OSC : bar_paintType == 'MMT' ? bColor_MMT : bar_paintType == 'Mono' ? bColor_mono : color.new(#ffffff, 100)
+color bColor_wto_1 = color.from_gradient(wto_1, -60, 60, BC_WTO_1_DOWN, BC_WTO_1_UP)
+color bColor_wto_2 = wto_1 > 0 ? BC_WTO_1_UP : BC_WTO_1_DOWN
+color bColor_wto_3 = color.from_gradient(wto_2, -60, 60, BC_WTO_2_DOWN, BC_WTO_2_UP)
+color bColor_wto_4 = wto_2 > 0 ? BC_WTO_2_UP : BC_WTO_2_DOWN
+color bColor_wto = BCS_WTO == BCS_WTO1 ? bColor_wto_1 : BCS_WTO == BCS_WTO2 ? bColor_wto_2 : BCS_WTO == BCS_WTO3 ? bColor_wto_3 : BCS_WTO == BCS_WTO4 ? bColor_wto_4 : na
+// color bColor_wto = na
+
+color bColor_kvo_1 = color.from_gradient(kvo, lower, upper, BC_KVO_DOWN, BC_KVO_UP)
+color bColor_kvo_2 = kvo > 0 ? BC_KVO_UP : BC_KVO_DOWN
+color bColor_kvo_3 = color.from_gradient(sig, inner_lower, inner_upper, BC_KVO_SIG_DOWN, BC_KVO_SIG_UP)
+color bColor_kvo_4 = sig > sig[1] and sig > 0 ? BC_KVO_SIG_UP : sig < sig[1] and sig < 0 ? BC_KVO_SIG_DOWN : BC_KVO_NEUT
+color bColor_kvo = BCS_KVO == BCS_KVO1 ? bColor_kvo_1 : BCS_KVO == BCS_KVO2 ? bColor_kvo_2 : BCS_KVO == BCS_KVO3 ? bColor_kvo_3 : BCS_KVO == BCS_KVO4 ? bColor_kvo_4 : na
+// color bColor_kvo = na
+
+color bColor_mono = Green or Blue or LBlue ? #b2b5be : Yellow ? #858891 : #5d606b
+
+bColor = bar_paintType == bC_ema ? bColor_ema : bar_paintType == bC_ocw ? bColor_owc : bar_paintType == bC_wto ? bColor_wto : bar_paintType == bC_kvo ? bColor_kvo : bar_paintType == bC_mono ? bColor_mono : color.new(#ffffff, 100)
 
 var bar_replaceCandles = bar_paintMode == 'Replace candles' and bar_paint
 barcolor(color=bar_paint ? bColor : na)
@@ -819,6 +971,6 @@ baseLine = donchian(basePeriods)
 leadLine1 = show_ichiEMA ? math.avg(conversionLine, baseLine) : na
 leadLine2 = show_ichiEMA ? donchian(laggingSpan2Periods) : na
 
-ichi_p1 = plot(leadLine1, offset = displacement, color=color.new(color.green, 85))
-ichi_p2 = plot(leadLine2, offset = displacement, color=color.new(color.red, 85))
+ichi_p1 = plot(leadLine1, offset=displacement, color=color.new(color.green, 85))
+ichi_p2 = plot(leadLine2, offset=displacement, color=color.new(color.red, 85))
 fill(ichi_p1, ichi_p2, color=ichiColorBG)
