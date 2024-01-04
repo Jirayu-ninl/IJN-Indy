@@ -788,7 +788,7 @@ showlast = input.int(10, 'Show Last', minval = 1, group = g_dsZone)
 demand_zone_css = input.color(color.new(#66bb6a, 93), 'Demand', inline = "Zones", group = g_dsZone)
 supply_zone_css = input.color(color.new(#f77c80, 93), 'Supply', inline = "Zones", group = g_dsZone)
 indecision_zone_css = input.color(color.new(#777575, 93), 'Indecision', inline = "Zones",group = g_dsZone)
-show_srZone_text = input.bool(true, 'Show Text', group = g_dsZone)
+show_srZone_text = input.bool(false, 'Show Text', group = g_dsZone)
 text_size = input.string('Small', 'Text Size', options = ['Tiny', 'Small', 'Normal'], group = g_dsZone)
 
 // -----------------------------------------------------------------------------------------------
@@ -910,9 +910,9 @@ display_zones(boxes, labels, dzones, show_last, zsize) =>
         box.set_bgcolor(get_box, zone.css)
         if show_srZone_text
             if zone.type == TBD_ZONE
-                label.new(bar_index + 5, zone.bottom, 'TBD', color=CLEAR, textcolor=color.new(zone.css, 0), size=label_size)
+                label.new(bar_index + 30, zone.bottom, 'TBD', color=CLEAR, textcolor=color.new(zone.css, 0), size=label_size)
             else
-                label.new(bar_index + 5, zone.bottom - 30, "Volume change: " + str.tostring(zone.volume) + "%\nReached: " + str.tostring(zone.reached), color=CLEAR, textcolor=color.new(zone.css, 0), size=label_size)
+                label.new(bar_index + 30, zone.bottom, "Volume change: " + str.tostring(zone.volume) + "%\nReached: " + str.tostring(zone.reached), color=CLEAR, textcolor=color.new(zone.css, 0), size=label_size)
 
 // -----------------------------------------------------------------------------------------------
 //   Calculations
