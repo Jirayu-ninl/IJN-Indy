@@ -52,7 +52,7 @@ bool show_sig_action = input.bool(true, 'Buy/Sell signals (EMA)', group=g_MainOp
 bool show_sig_mom_bias = input.bool(false, 'Momentum Bias signals (EMA + RSI)', group=g_MainOpt)
 bool show_ewoHistogram = input.bool(false, 'Elliott Wave Oscillator (EWO) Histogram', group=g_MainOpt)
 bool show_sig_ewo = input.bool(true, 'Elliott Wave Oscillator (EWO) Signal', group=g_MainOpt)
-bool show_ichiEMA = input.bool(true, 'Ichimuku EMA', group=g_MainOpt)
+bool show_ichiEMA = input.bool(true, 'Ichimoku EMA', group=g_MainOpt)
 bool osclLineShowInput = input.bool(true, "Oscillator Wave Channel (OWC) Line", inline = "oscLine", group=g_MainOpt)
 bool divLinesShowInput = input.bool(true, "Divergence levels", inline = "divLines", group=g_MainOpt)
 bool charDivShowInput = input.bool(true, "Divergence mark", inline = "divChar", group=g_MainOpt)
@@ -951,18 +951,18 @@ plotcandle(open, high, low, close, color = bar_replaceCandles ? bColor : na, wic
 // ══════════════════════════════════════════════════════════════════════════════════════════════════ //
 //# * ══════════════════════════════════════════════════════════════════════════════════════════════
 //# *
-//# * Module : Ichimuku EMA
+//# * Module : Ichimoku EMA
 //# *
 //# * ══════════════════════════════════════════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════════════════════════════════════════════ //
 
-g_ichiEma = 'Ichimuku EMA'
+g_ichiEma = 'Ichimoku EMA'
 len = input.int(26, minval=1, group=g_ichiEma)
 conversionPeriods = input.int(5, minval=1, group=g_ichiEma)
 basePeriods = input.int(26, minval=1, group=g_ichiEma)
 laggingSpan2Periods = input.int(52, minval=1, group=g_ichiEma)
 displacement = input.int(26, minval=1, group=g_ichiEma)
-ichiColorBG = input.color(color.new(color.silver, 90), 'Ichimuku Color', group=g_ichiEma)
+ichiColorBG = input.color(color.new(color.silver, 90), 'Ichimoku Color', group=g_ichiEma)
 
 donchian(len) => math.avg(ta.lowest(len), ta.highest(len))
 
